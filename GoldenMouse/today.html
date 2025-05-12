@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <title>深圳技术大学公文通 - 今日公告</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    
+    body {
+      background-color: #f5f5f5;
+      color: #333;
+      line-height: 1.6;
+    }
+    
+    /* 顶部导航样式 */
+    .navbar {
+      background-color: #003366;
+      color: white;
+      padding: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    
+    .nav-links a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+    
+    .nav-links a:hover {
+      background-color: rgba(255,255,255,0.2);
+    }
+    
+    .nav-links a.active {
+      background-color: rgba(255,255,255,0.3);
+      font-weight: bold;
+    }
+    
+    /* 内容区域 */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .header {
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      color: #003366;
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+    
+    .date {
+      font-weight: bold;
+      color: #555;
+      font-size: 18px;
+    }
+    
+    /* 文章卡片样式 */
+    .article-list {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .article-card {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+      padding: 20px;
+    }
+    
+    .article-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .article-title {
+      font-size: 20px;
+      margin-bottom: 10px;
+      color: #003366;
+    }
+    
+    .article-title a {
+      color: inherit;
+      text-decoration: none;
+    }
+    
+    .article-title a:hover {
+      text-decoration: underline;
+    }
+    
+    .article-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    
+    .article-source {
+      font-weight: bold;
+      background-color: #f0f7ff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      color: #0055a4;
+    }
+    
+    .article-time {
+      color: #777;
+    }
+    
+    .article-content {
+      color: #444;
+      line-height: 1.6;
+      margin-bottom: 15px;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+    }
+    
+    .article-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #eee;
+      padding-top: 12px;
+      margin-top: 12px;
+    }
+    
+    .article-attachments {
+      display: flex;
+      align-items: center;
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .article-attachments i {
+      margin-right: 5px;
+    }
+    
+    .article-clicks {
+      color: #888;
+      font-size: 14px;
+    }
+    
+    .read-more {
+      display: inline-block;
+      padding: 6px 12px;
+      background-color: #eaf2ff;
+      color: #003366;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    
+    .read-more:hover {
+      background-color: #d0e0ff;
+    }
+    
+    /* 无文章时的提示 */
+    .no-articles {
+      text-align: center;
+      padding: 50px 20px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .no-articles h2 {
+      color: #666;
+      margin-bottom: 15px;
+    }
+    
+    .no-articles p {
+      color: #888;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    
+    /* 加载动画 */
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 200px;
+    }
+    
+    .loading-spinner {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #003366;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* 错误消息样式 */
+    .error-message {
+      background-color: #ffebee;
+      color: #c62828;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <!-- 导航栏 -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">深圳技术大学通知</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link active" href="/">今日通知</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/archive">历史归档</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/subscribe">邮件订阅</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- 内容区域 -->
+  <div class="container">
+    <div class="header">
+      <h1>深技大今日公告</h1>
+      <div class="date" id="current-date"></div>
+    </div>
+    
+    <!-- 加载动画 -->
+    <div class="loading" id="loading">
+      <div class="loading-spinner"></div>
+    </div>
+    
+    <!-- 文章列表 -->
+    <div class="article-list" id="article-list"></div>
+    
+    <!-- 无文章提示 -->
+    <div class="no-articles" id="no-articles" style="display:none">
+      <h2>今日暂无公告发布</h2>
+      <p>您可以浏览归档查询历史公告，或稍后再来查看今日更新。</p>
+    </div>
+  </div>
+
+  <div class="container mt-3">
+    <div class="alert alert-info text-center" role="alert">
+      <p><strong>想要及时获取最新通知？</strong></p>
+      <p>现在您可以 <a href="/subscribe" class="alert-link">订阅邮件通知</a>，获取第一时间推送！</p>
+    </div>
+  </div>
+  
+  <script>
+    // 显示当前日期
+    function updateCurrentDate() {
+      const now = new Date();
+      const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+      document.getElementById('current-date').textContent = now.toLocaleDateString('zh-CN', options);
+    }
+    
+    // 加载今日数据
+    function loadTodayData() {
+      const loading = document.getElementById('loading');
+      const articleList = document.getElementById('article-list');
+      const noArticles = document.getElementById('no-articles');
+      const currentDateElem = document.getElementById('current-date');
+      
+      loading.style.display = 'flex';
+      articleList.innerHTML = '';
+      noArticles.style.display = 'none';
+      
+      fetch('/api/get_today_data')
+        .then(response => {
+          if (!response.ok) throw new Error(`HTTP错误 ${response.status}`);
+          return response.json();
+        })
+        .then(response => {
+          const articles = response.data || [];
+          const queryDate = response.queryDate;
+          loading.style.display = 'none';
+          
+          // 如果有返回查询日期，更新显示
+          if (queryDate) {
+            const displayDate = new Date(queryDate);
+            const today = new Date();
+            
+            if (displayDate.toDateString() === today.toDateString()) {
+              // 是今天的日期，保持原样显示
+              updateCurrentDate();
+            } else {
+              // 不是今天的日期，显示查询的日期
+              const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+              currentDateElem.textContent = displayDate.toLocaleDateString('zh-CN', options) + ' (最新公告)';
+            }
+          }
+          
+          if (articles.length === 0) {
+            noArticles.style.display = 'block';
+          } else {
+            renderArticles(articles);
+          }
+        })
+        .catch(error => {
+          console.error('加载失败:', error);
+          loading.style.display = 'none';
+          articleList.innerHTML = `
+            <div class="error-message">
+              <h3>数据加载失败</h3>
+              <p>${error.message}</p>
+              <p>请稍后再试或联系管理员</p>
+            </div>
+          `;
+        });
+    }
+    
+    // 渲染文章列表
+    function renderArticles(articles) {
+      const articleList = document.getElementById('article-list');
+      
+      articles.forEach(article => {
+        // 提取时间部分（如果有）
+        let timeDisplay = '';
+        if (article.detail_time) {
+          const timeParts = article.detail_time.split(' ');
+          if (timeParts.length > 1) {
+            timeDisplay = timeParts[1]; // 只显示时间部分
+          } else {
+            timeDisplay = article.detail_time;
+          }
+        }
+        
+        // 处理内容摘要 - 去除HTML标签并截取
+        let contentSummary = '';
+        if (article.content) {
+          contentSummary = article.content
+            .replace(/<[^>]*>/g, ' ') // 移除HTML标签
+            .replace(/\s+/g, ' ')    // 合并多个空白字符
+            .trim()
+            .substring(0, 150);      // 截取前150个字符
+          
+          if (article.content.length > 150) {
+            contentSummary += '...';
+          }
+        }
+        
+        // 判断是否有附件
+        let attachmentInfo = '无附件';
+        if (article.fujians) {
+          // 计算附件数量
+          let count = 0;
+          if (typeof article.fujians === 'string') {
+            // 按换行符分割字符串计算数量
+            const items = article.fujians.split('\n').filter(item => item.trim() !== '');
+            count = items.length;
+          } else if (Array.isArray(article.fujians)) {
+            count = article.fujians.filter(item => item && item.trim() !== '').length;
+          }
+          
+          if (count > 0) {
+            attachmentInfo = `${count} 个附件`;
+          }
+        }
+        
+        // 创建文章卡片
+        const articleCard = document.createElement('div');
+        articleCard.className = 'article-card';
+        articleCard.innerHTML = `
+          <h2 class="article-title">
+            <a href="${article.url}" target="_blank">${article.title || '无标题'}</a>
+          </h2>
+          <div class="article-meta">
+            <span class="article-source">${article.source || '未知来源'}</span>
+            <span class="article-time">${timeDisplay || '时间未知'}</span>
+          </div>
+          <div class="article-content">${contentSummary || '无内容摘要'}</div>
+          <div class="article-footer">
+            <div class="article-attachments">
+              <i>📎</i> ${attachmentInfo}
+            </div>
+            <div class="article-clicks">
+              <i>👁</i> ${article.click_num || 0} 次浏览
+            </div>
+          </div>
+        `;
+        
+        articleList.appendChild(articleCard);
+      });
+    }
+    
+    // 页面加载时执行
+    document.addEventListener('DOMContentLoaded', () => {
+      updateCurrentDate();
+      loadTodayData();
+    });
+  </script>
+</body>
+</html>

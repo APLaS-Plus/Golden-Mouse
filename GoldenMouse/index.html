@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <title>深圳技术大学公文通 - 归档查询</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* 顶部导航样式 */
+    .navbar {
+      background-color: #003366;
+      color: white;
+      padding: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    
+    .nav-links a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+    
+    .nav-links a:hover {
+      background-color: rgba(255,255,255,0.2);
+    }
+    
+    .nav-links a.active {
+      background-color: rgba(255,255,255,0.3);
+      font-weight: bold;
+    }
+    
+    /* 页面标题 */
+    h1 {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      color: #003366;
+      margin-top: 20px;
+    }
+
+    /* 表格样式 */
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 20px 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      font-family: Arial, sans-serif;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: left;
+    }
+    th {
+      background-color: #f8f9fa;
+      font-weight: bold;
+      color: #333;
+      font-size: 16px;
+      white-space: nowrap;
+    }
+    tr:hover {
+      background-color: #f5f5f5;
+    }
+    /* 加载提示 */
+    #loading {
+      color: #666;
+      padding: 10px;
+      font-style: italic;
+    }
+    /* 链接样式 */
+    a {
+      color: #007bff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    /* 分页控件样式 */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+      font-family: Arial, sans-serif;
+    }
+    .pagination button {
+      padding: 8px 15px;
+      margin: 0 5px;
+      border: 1px solid #ddd;
+      background-color: #fff;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .pagination button:hover {
+      background-color: #f5f5f5;
+    }
+    .pagination button.active {
+      background-color: #007bff;
+      color: white;
+      border-color: #007bff;
+    }
+    .pagination button:disabled {
+      color: #ccc;
+      cursor: not-allowed;
+    }
+    .pagination-info {
+      text-align: center;
+      color: #666;
+      margin-bottom: 10px;
+    }
+    /* 附件样式 */
+    .file-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .file-list li {
+      padding: 3px 0;
+      border-bottom: 1px dashed #eee;
+    }
+    .file-list li:last-child {
+      border-bottom: none;
+    }
+    /* 无附件样式 */
+    .no-attachments {
+      color: rgba(0, 0, 0, 0.2);
+      font-size: 20px;
+      text-align: center;
+    }
+    /* 详细时间居中样式 */
+    .time-cell {
+      text-align: center;
+    }
+
+    /* 容器样式 */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <!-- 导航栏 -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">深圳技术大学通知</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="/">今日通知</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="/archive">历史归档</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/subscribe">邮件订阅</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1>归档查询</h1>
+    <div id="loading">正在加载数据，请稍候...</div>
+    
+    <table id="data-table">
+      <thead>
+        <tr>
+          <th>标题</th>
+          <th>来源</th>
+          <th>详细时间</th>
+          <th>点击量</th>
+          <th>附件</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    
+    <div class="pagination-info" id="pagination-info"></div>
+    <div class="pagination" id="pagination-controls"></div>
+  </div>
+
+  <div class="container mt-3">
+    <div class="alert alert-info text-center" role="alert">
+      <p><strong>想要及时获取最新通知？</strong></p>
+      <p>现在您可以 <a href="/subscribe" class="alert-link">订阅邮件通知</a>，获取第一时间推送！</p>
+    </div>
+  </div>
+
+  <script>
+    // 全局变量存储当前分页状态
+    let currentPage = 1;
+    let itemsPerPage = 10;
+    let totalPages = 0;
+    
+    // 加载指定页数的数据
+    function loadData(page = 1) {
+      const loading = document.getElementById('loading');
+      loading.style.display = 'block';
+      
+      fetch(`/api/get_data?page=${page}&per_page=${itemsPerPage}`)
+        .then(response => {
+          if (!response.ok) throw new Error(`HTTP错误 ${response.status}`);
+          return response.json();
+        })
+        .then(response => {
+          console.log('API返回数据:', response); // 调试输出
+          
+          const data = response.data || [];
+          const pagination = response.pagination || {total: 0, page: 1, per_page: itemsPerPage, total_pages: 0};
+          
+          // 更新分页状态
+          currentPage = pagination.page;
+          totalPages = pagination.total_pages;
+          
+          const tbody = document.querySelector('#data-table tbody');
+          loading.style.display = 'none';
+          
+          // 清空现有表格
+          tbody.innerHTML = '';
+          
+          // 填充表格数据
+          console.log(`准备渲染 ${data.length} 条记录`); // 调试输出
+          
+          if (data.length === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td colspan="5" style="text-align: center;">暂无数据</td>';
+            tbody.appendChild(tr);
+          } else {
+            data.forEach((row, index) => {
+              console.log(`渲染第 ${index+1} 条记录`, row); // 调试每条记录
+              
+              // 处理附件，将\n分隔的字符串转换为HTML列表，无附件时使用透明斜杠
+              let fujiansHtml = '<div class="no-attachments">&#47;</div>'; // 使用透明斜杠表示无附件
+              
+              if (row.fujians) {
+                // 处理字符串形式的附件
+                if (typeof row.fujians === 'string' && row.fujians.trim() !== '') {
+                  const fujianItems = row.fujians.split('\n')
+                    .filter(item => item.trim() !== '')
+                    .map(item => `<li>${item.trim()}</li>`)
+                    .join('');
+                  
+                  if (fujianItems) {
+                    fujiansHtml = `<ul class="file-list">${fujianItems}</ul>`;
+                  }
+                } 
+                // 处理数组形式的附件
+                else if (Array.isArray(row.fujians) && row.fujians.length > 0) {
+                  const fujianItems = row.fujians
+                    .filter(item => item && item.trim() !== '')
+                    .map(item => `<li>${item.trim()}</li>`)
+                    .join('');
+                  
+                  if (fujianItems) {
+                    fujiansHtml = `<ul class="file-list">${fujianItems}</ul>`;
+                  }
+                }
+              }
+              
+              const tr = document.createElement('tr');
+              tr.innerHTML = `
+                <td>${row.url ? `<a href="${row.url}" target="_blank">${row.title || '无标题'}</a>` : row.title || '无标题'}</td>
+                <td>${row.source || '未知来源'}</td>
+                <td class="time-cell">${row['detail_time'] || '--'}</td>
+                <td>${row['click_num'] || 0}</td>
+                <td>${fujiansHtml}</td>
+              `;
+              tbody.appendChild(tr);
+            });
+          }
+          
+          // 更新分页信息
+          updatePagination(pagination);
+        })
+        .catch(error => {
+          console.error('加载失败:', error);
+          document.getElementById('loading').innerHTML = `
+            <div style="color: red; border: 1px solid red; padding: 10px;">
+              错误：数据加载失败！<br>
+              可能原因：<br>
+              1. 数据库连接失败<br>
+              2. API服务未运行<br>
+              详细错误: ${error.message}
+            </div>
+          `;
+        });
+    }
+    
+    // 更新分页控件
+    function updatePagination(pagination) {
+      const paginationInfo = document.getElementById('pagination-info');
+      const paginationControls = document.getElementById('pagination-controls');
+      
+      // 更新分页信息文字
+      paginationInfo.textContent = `显示 ${pagination.total} 条记录中的第 ${(pagination.page-1)*pagination.per_page+1} 至 
+        ${Math.min(pagination.page*pagination.per_page, pagination.total)} 条，共 ${pagination.total_pages} 页`;
+      
+      // 清空现有控件
+      paginationControls.innerHTML = '';
+      
+      // 添加上一页按钮
+      const prevButton = document.createElement('button');
+      prevButton.textContent = '上一页';
+      prevButton.disabled = pagination.page <= 1;
+      prevButton.onclick = () => loadData(pagination.page - 1);
+      paginationControls.appendChild(prevButton);
+      
+      // 添加页码按钮
+      let startPage = Math.max(1, pagination.page - 2);
+      let endPage = Math.min(pagination.total_pages, pagination.page + 2);
+      
+      // 保证显示5个页码按钮(如果有足够页数)
+      if (endPage - startPage < 4 && pagination.total_pages > 4) {
+        if (startPage === 1) {
+          endPage = Math.min(startPage + 4, pagination.total_pages);
+        } else if (endPage === pagination.total_pages) {
+          startPage = Math.max(endPage - 4, 1);
+        }
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        const pageButton = document.createElement('button');
+        pageButton.textContent = i;
+        pageButton.classList.toggle('active', i === pagination.page);
+        pageButton.onclick = () => loadData(i);
+        paginationControls.appendChild(pageButton);
+      }
+      
+      // 添加下一页按钮
+      const nextButton = document.createElement('button');
+      nextButton.textContent = '下一页';
+      nextButton.disabled = pagination.page >= pagination.total_pages;
+      nextButton.onclick = () => loadData(pagination.page + 1);
+      paginationControls.appendChild(nextButton);
+    }
+    
+    // 页面加载时获取第一页数据
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData(1);
+    });
+  </script>
+</body>
+</html>
