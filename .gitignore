@@ -1,0 +1,5 @@
+.venv/*
+3rd/*
+database/*
+*/__pycache__/*
+test.py
