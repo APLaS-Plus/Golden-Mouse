@@ -1,0 +1,5 @@
+flask
+schedule
+requests
+sqlalchemy
+beautifulsoup4

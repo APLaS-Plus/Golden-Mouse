@@ -3,8 +3,6 @@
 
 该程序实现了对深圳技术大学公文通系统的文章抓取、解析和存储功能。
 """
-
-import argparse
 import logging
 import time
 
