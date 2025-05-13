@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <title>深圳技术大学公文通 - 今日公告</title>
+  <title>深圳技术大学公文通 - 今日通知</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <style>
     * {
       box-sizing: border-box;
@@ -16,48 +17,17 @@
       background-color: #f5f5f5;
       color: #333;
       line-height: 1.6;
+      padding-top: 0;
     }
     
-    /* 顶部导航样式 */
+    /* 统一导航栏样式 - 采用订阅界面样式 */
     .navbar {
-      background-color: #003366;
-      color: white;
-      padding: 16px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      margin-bottom: 20px;
+      background-color: #007bff;
+      padding: 0.5rem 1rem;
     }
-    
-    .nav-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .logo {
-      font-size: 24px;
-      font-weight: bold;
-    }
-    
-    .nav-links a {
-      color: white;
-      text-decoration: none;
-      margin-left: 20px;
-      padding: 8px 12px;
-      border-radius: 4px;
-      transition: background-color 0.3s;
-    }
-    
-    .nav-links a:hover {
-      background-color: rgba(255,255,255,0.2);
-    }
-    
-    .nav-links a.active {
-      background-color: rgba(255,255,255,0.3);
-      font-weight: bold;
+    .navbar-brand, .nav-link {
+      color: white !important;
     }
     
     /* 内容区域 */
@@ -65,6 +35,10 @@
       max-width: 1200px;
       margin: 0 auto;
       padding: 20px;
+    }
+    
+    .content-container {
+      margin-top: 20px;
     }
     
     .header {
@@ -246,15 +220,16 @@
   </style>
 </head>
 <body>
-  <!-- 导航栏 -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#">深圳技术大学通知</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+  <!-- 顶部导航栏 - 采用订阅界面样式 -->
+  <nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container">
+      <a class="navbar-brand" href="/">深技大GoldenMouse</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+          aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav">
+        <ul class="navbar-nav ms-auto">
           <li class="nav-item">
             <a class="nav-link active" href="/">今日通知</a>
           </li>
@@ -270,7 +245,7 @@
   </nav>
   
   <!-- 内容区域 -->
-  <div class="container">
+  <div class="container content-container">
     <div class="header">
       <h1>深技大今日公告</h1>
       <div class="date" id="current-date"></div>
@@ -298,6 +273,7 @@
     </div>
   </div>
   
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     // 显示当前日期
     function updateCurrentDate() {

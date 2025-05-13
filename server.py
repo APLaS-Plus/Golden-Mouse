@@ -69,50 +69,65 @@ def send_new_articles_email(new_urls):
             session.close()
             return
 
-        # 构建HTML邮件内容
-        html_content = """
-        <html>
-        <head>
-            <style>
-                body { font-family: Arial, sans-serif; }
-                .article { margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
-                .title { font-size: 18px; font-weight: bold; color: #333; }
-                .meta { font-size: 12px; color: #666; margin: 5px 0; }
-                .content { font-size: 14px; line-height: 1.5; }
-                .link { color: #0066cc; }
-            </style>
-        </head>
-        <body>
-            <h2>深圳技术大学官网最新文章</h2>
-            <p>以下是最新发布的文章：</p>
-        """
-
+        # 按来源平台分组文章
+        articles_by_platform = {}
         for article in articles:
-            html_content += f"""
-            <div class="article">
-                <div class="title">{article.title}</div>
-                <div class="meta">
-                    <span>来源: {article.source}</span> | 
-                    <span>时间: {article.date} {article.detail_time}</span> | 
-                    <span>点击量: {article.click_num}</span>
-                </div>
-                <div class="content">{article.content[:200]}...</div>
-                <a class="link" href="{article.url}" target="_blank">阅读全文</a>
-            </div>
+            platform = article.source
+            if platform not in articles_by_platform:
+                articles_by_platform[platform] = []
+            articles_by_platform[platform].append(article)
+
+        # 对每个平台的文章发送邮件
+        for platform, platform_articles in articles_by_platform.items():
+            # 构建HTML邮件内容
+            html_content = f"""
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; }}
+                    .article {{ margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }}
+                    .title {{ font-size: 18px; font-weight: bold; color: #333; }}
+                    .meta {{ font-size: 12px; color: #666; margin: 5px 0; }}
+                    .content {{ font-size: 14px; line-height: 1.5; }}
+                    .link {{ color: #0066cc; }}
+                </style>
+            </head>
+            <body>
+                <h2>深圳技术大学{platform}最新文章</h2>
+                <p>以下是最新发布的文章：</p>
             """
 
-        html_content += """
-            <p>感谢您的订阅！如需退订，请访问 <a href="http://localhost:5000/subscribe">订阅页面</a> 进行操作。</p>
-        </body>
-        </html>
-        """
+            for article in platform_articles:
+                html_content += f"""
+                <div class="article">
+                    <div class="title">{article.title}</div>
+                    <div class="meta">
+                        <span>来源: {article.source}</span> | 
+                        <span>时间: {article.date} {article.detail_time}</span> | 
+                        <span>点击量: {article.click_num}</span>
+                    </div>
+                    <div class="content">{article.content[:200]}...</div>
+                    <a class="link" href="{article.url}" target="_blank">阅读全文</a>
+                </div>
+                """
 
-        # 发送邮件
-        success, total = subscriber_service.send_email_to_all_subscribers(
-            subject="深圳技术大学官网文章更新提醒", content=html_content, html=True
-        )
+            html_content += """
+                <p>感谢您的订阅！如需调整订阅设置，请访问 <a href="http://localhost:5000/subscribe">订阅页面</a>。</p>
+            </body>
+            </html>
+            """
 
-        print(f"[{datetime.now()}] 发送邮件完成，成功: {success}/{total}")
+            # 发送邮件
+            success, total = subscriber_service.send_email_to_all_subscribers(
+                subject=f"深圳技术大学{platform}文章更新提醒",
+                content=html_content,
+                html=True,
+                source_platform=platform,
+            )
+
+            print(
+                f"[{datetime.now()}] 发送 {platform} 平台邮件完成，成功: {success}/{total}"
+            )
 
         # 更新已发送URL集合
         last_sent_urls.update(truly_new_urls)
@@ -140,9 +155,20 @@ def run_scheduler():
         time.sleep(1)
 
 
-# 邮箱订阅相关API
-@app.route("/api/subscribe", methods=["POST"])
-def subscribe():
+# 新增API - 获取所有平台
+@app.route("/api/get_platforms", methods=["GET"])
+def get_platforms():
+    try:
+        platforms = subscriber_service.get_all_platforms()
+        return jsonify({"success": True, "platforms": platforms})
+    except Exception as e:
+        print(f"获取平台列表错误: {str(e)}")
+        return jsonify({"success": False, "message": f"服务器错误: {str(e)}"}), 500
+
+
+# 新增API - 获取用户已订阅平台
+@app.route("/api/get_subscriber_platforms", methods=["POST"])
+def get_subscriber_platforms():
     try:
         data = request.get_json()
         email = data.get("email", "").strip()
@@ -150,11 +176,57 @@ def subscribe():
         if not email:
             return jsonify({"success": False, "message": "邮箱不能为空"}), 400
 
-        success, message = subscriber_service.add_subscriber(email)
+        subscription_info = subscriber_service.get_subscriber_platforms(email)
+        if subscription_info is None:
+            return jsonify({"success": False, "message": "未找到该邮箱的订阅信息"})
+
+        return jsonify({"success": True, "subscription": subscription_info})
+
+    except Exception as e:
+        print(f"获取订阅平台错误: {str(e)}")
+        return jsonify({"success": False, "message": f"服务器错误: {str(e)}"}), 500
+
+
+# 邮箱订阅相关API
+@app.route("/api/subscribe", methods=["POST"])
+def subscribe():
+    try:
+        data = request.get_json()
+        email = data.get("email", "").strip()
+        all_platforms = data.get("all_platforms", True)
+        platform_ids = data.get("platform_ids", [])
+
+        print(
+            f"收到订阅请求: email={email}, all_platforms={all_platforms}, platform_ids={platform_ids}"
+        )
+
+        if not email:
+            return jsonify({"success": False, "message": "邮箱不能为空"}), 400
+
+        # 转换平台ID为整数
+        if platform_ids and isinstance(platform_ids, list):
+            try:
+                platform_ids = [int(pid) for pid in platform_ids]
+                print(f"转换后的平台ID: {platform_ids}")
+            except (ValueError, TypeError) as e:
+                print(f"平台ID转换错误: {str(e)}")
+                platform_ids = []
+
+        # 如果没有选择任何平台但选择了"选择特定平台"，返回错误
+        if not all_platforms and not platform_ids:
+            print("未选择任何平台，但设置了非全部平台订阅")
+            return jsonify({"success": False, "message": "请至少选择一个平台"}), 400
+
+        success, message = subscriber_service.add_subscriber(
+            email, platform_ids, all_platforms
+        )
         return jsonify({"success": success, "message": message})
 
     except Exception as e:
         print(f"订阅处理错误: {str(e)}")
+        import traceback
+
+        traceback.print_exc()  # 打印完整堆栈信息
         return jsonify({"success": False, "message": f"服务器错误: {str(e)}"}), 500
 
 
