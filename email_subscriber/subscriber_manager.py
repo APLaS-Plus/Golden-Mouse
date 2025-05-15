@@ -89,7 +89,7 @@ class SubscriberService:
         # 验证是否符合掩码规则
         if not self._match_mask(email):
             self.logger.warning(f"邮箱不符合订阅规则: {email}")
-            return False, "仅接受符合规则的邮箱订阅（如学校邮箱）"
+            return False, "仅接受学号邮箱（全学号@stumail.sztu.edu.cn）订阅"
 
         # 处理platform_ids，确保其为整数列表
         if platform_ids:
