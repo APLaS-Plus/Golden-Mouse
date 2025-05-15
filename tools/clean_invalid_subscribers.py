@@ -9,6 +9,7 @@ from email_subscriber.config import DB_URL, SUBSCRIBER_MASK
 from email_subscriber.subscriberDB import EmailSubscriberDB, Platform, Base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import text
 
 
 def main():
@@ -56,9 +57,9 @@ def main():
                     "platform_ids": [p.id for p in s.platforms],
                 }
             )
-        # 清空表
-        session.execute("DELETE FROM subscriber_platform")
-        session.execute("DELETE FROM email_subscribers")
+        # 清空表 - 使用text()包装SQL语句
+        session.execute(text("DELETE FROM subscriber_platform"))
+        session.execute(text("DELETE FROM email_subscribers"))
         session.commit()
         # 关闭session，重新开启以避免主键自增混乱
         session.close()
