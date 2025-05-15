@@ -57,6 +57,18 @@ class EmailSubscriberDB(Base):
         return f"EmailSubscriber(id={self.id}, email='{self.email}', all_platforms={self.all_platforms})"
 
 
+class EmailStats(Base):
+    """邮件统计数据模型"""
+
+    __tablename__ = "email_stats"
+
+    id = Column(Integer, primary_key=True)
+    total_emails_sent = Column(Integer, default=0)  # 总共发送的邮件数
+
+    def __repr__(self):
+        return f"EmailStats(id={self.id}, total_emails_sent={self.total_emails_sent})"
+
+
 class EmailSubscriberManager:
     """邮箱订阅者管理类"""
 
@@ -261,7 +273,14 @@ class EmailSubscriberManager:
         """获取所有订阅者"""
         session = self.get_session()
         try:
-            return session.query(EmailSubscriberDB).all()
+            # 使用joinedload预加载platforms关系
+            from sqlalchemy.orm import joinedload
+
+            return (
+                session.query(EmailSubscriberDB)
+                .options(joinedload(EmailSubscriberDB.platforms))
+                .all()
+            )
         finally:
             session.close()
 
@@ -274,5 +293,44 @@ class EmailSubscriberManager:
                 .filter(EmailSubscriberDB.email == email)
                 .first()
             )
+        finally:
+            session.close()
+
+    def get_stats(self):
+        """获取统计数据"""
+        session = self.get_session()
+        try:
+            stats = session.query(EmailStats).first()
+            subscriber_count = session.query(EmailSubscriberDB).count()
+
+            if not stats:
+                stats = EmailStats(total_emails_sent=0)
+                session.add(stats)
+                session.commit()
+
+            return {
+                "subscriber_count": subscriber_count,
+                "total_emails_sent": stats.total_emails_sent,
+            }
+        finally:
+            session.close()
+
+    def increment_emails_sent(self, count=1):
+        """增加已发送邮件计数"""
+        session = self.get_session()
+        try:
+            stats = session.query(EmailStats).first()
+            if not stats:
+                stats = EmailStats(total_emails_sent=count)
+                session.add(stats)
+            else:
+                stats.total_emails_sent += count
+
+            session.commit()
+            return stats.total_emails_sent
+        except Exception as e:
+            session.rollback()
+            logging.error(f"更新邮件统计失败: {str(e)}")
+            return 0
         finally:
             session.close()
