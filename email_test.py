@@ -6,13 +6,15 @@
 
 import argparse
 import smtplib
+import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
 import sys
 
-# 导入配置
+# 导入配置和数据库管理器
 from email_subscriber.config import SMTP_SERVER, SMTP_PASSWORD, MY_EMAIL
+from email_subscriber.subscriberDB import EmailSubscriberManager
 
 
 def send_email(receiver_email, subject, content, is_html=True):
@@ -127,18 +129,69 @@ def generate_apology_email():
     return html_content
 
 
+def send_to_all_subscribers(confirm=False):
+    """向所有订阅者发送道歉邮件"""
+    db_manager = EmailSubscriberManager()
+    subscribers = db_manager.get_all_subscribers()
+
+    if not subscribers:
+        print("❌ 数据库中没有订阅者!")
+        return
+
+    total = len(subscribers)
+    print(f"📊 总共找到 {total} 个订阅者")
+
+    if not confirm:
+        response = input(f"确认发送道歉邮件给全部 {total} 位订阅者? (y/n): ")
+        if response.lower() != "y":
+            print("⚠️ 操作已取消")
+            return
+
+    content = generate_apology_email()
+    subject = "【重要】公文通订阅系统维护通知"
+
+    success = 0
+    failure = 0
+
+    for idx, subscriber in enumerate(subscribers, 1):
+        print(f"[{idx}/{total}] 正在处理: {subscriber.email}")
+
+        if send_email(subscriber.email, subject, content):
+            success += 1
+        else:
+            failure += 1
+
+        # 避免发送过于频繁被邮件服务器限制
+        if idx < total:
+            print("等待1秒...")
+            time.sleep(1)
+
+    print("\n📈 发送结果统计:")
+    print(f"✅ 成功: {success}")
+    print(f"❌ 失败: {failure}")
+    print(f"📊 总计: {total}")
+
+
 def main():
-    parser = argparse.ArgumentParser(description="发送道歉声明邮件")
-    parser.add_argument("email", help="接收邮件的邮箱地址")
+    parser = argparse.ArgumentParser(description="发送道歉声明邮件给所有订阅者")
+    parser.add_argument(
+        "--force", "-f", action="store_true", help="直接发送邮件而不确认"
+    )
+    parser.add_argument(
+        "--single", "-s", type=str, help="向单个邮箱地址发送测试邮件，而不是所有订阅者"
+    )
 
     args = parser.parse_args()
 
-    print(f"🚀 开始发送道歉声明邮件到: {args.email}")
-
-    content = generate_apology_email()
-    send_email(args.email, "【重要】公文通订阅系统维护通知", content)
-
-    print("\n✅ 邮件发送完成！请检查您的邮箱。")
+    if args.single:
+        print(f"🚀 开始发送测试道歉声明邮件到: {args.single}")
+        content = generate_apology_email()
+        send_email(args.single, "【重要】公文通订阅系统维护通知", content)
+        print("\n✅ 测试邮件发送完成！请检查您的邮箱。")
+    else:
+        print("🚀 开始向所有订阅者发送道歉声明邮件")
+        send_to_all_subscribers(confirm=args.force)
+        print("\n✅ 批量邮件发送任务完成！")
 
 
 if __name__ == "__main__":
