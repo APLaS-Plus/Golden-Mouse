@@ -113,14 +113,16 @@
             </div>
             <div class="card-body">
                 <p class="card-text">输入您的邮箱地址，订阅深圳技术大学公文通最新通知。我们会在有新通知时，第一时间发送到您的邮箱。</p>
-                <p class="card-text text-muted">注意：目前仅支持深圳技术大学学生邮箱（@stumail.sztu.edu.cn）进行订阅。</p>
+                <p class="card-text text-muted">
+                    <strong>注意：</strong> 目前仅支持深圳技术大学学生邮箱（<span style="color:#007bff">@stumail.sztu.edu.cn</span>），且邮箱前缀必须为学号（全数字），如 <code>202300123456@stumail.sztu.edu.cn</code> 进行订阅。
+                </p>
                 
                 <form id="subscribeForm">
                     <div class="form-group">
                         <label for="subscribeEmail">邮箱地址</label>
-                        <input type="email" class="form-control" id="subscribeEmail" placeholder="请输入邮箱地址" required>
-                        <div class="invalid-feedback">
-                            请输入有效的邮箱地址
+                        <input type="email" class="form-control" id="subscribeEmail" placeholder="请输入学号邮箱（全数字@stumail.sztu.edu.cn）" required>
+                        <div class="invalid-feedback" id="subscribeEmailInvalid">
+                            请输入有效的学号邮箱（全数字@stumail.sztu.edu.cn）
                         </div>
                     </div>
                     
@@ -300,13 +302,14 @@
         // 订阅表单提交
         document.getElementById('subscribeForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             const email = document.getElementById('subscribeEmail').value.trim();
-            if (!isValidEmail(email)) {
+            // 只做必填校验，不做格式校验，格式交由后端判断
+            if (!email) {
                 document.getElementById('subscribeEmail').classList.add('is-invalid');
+                document.getElementById('subscribeEmailInvalid').textContent = '请输入邮箱地址';
                 return;
             }
-            
             document.getElementById('subscribeEmail').classList.remove('is-invalid');
             
             // 获取订阅类型
@@ -363,6 +366,11 @@
                         </div>
                     `;
                 } else {
+                    // 如果后端返回邮箱格式错误，前端高亮输入框
+                    if (data.message && data.message.includes('学号邮箱')) {
+                        document.getElementById('subscribeEmail').classList.add('is-invalid');
+                        document.getElementById('subscribeEmailInvalid').textContent = data.message;
+                    }
                     resultDiv.innerHTML = `
                         <div class="alert alert-danger mt-3" role="alert">
                             <span class="error-icon">✗</span> ${data.message}
@@ -429,10 +437,9 @@
             });
         });
         
-        // 邮箱验证函数
+        // 邮箱验证函数（不再使用，仅保留必填校验）
         function isValidEmail(email) {
-            const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-            return re.test(email);
+            return !!email;
         }
     </script>
 </body>
