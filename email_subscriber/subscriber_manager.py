@@ -174,6 +174,10 @@ class SubscriberService:
         self.logger.info(f"邮件发送完成，成功: {success_count}/{len(subscribers)}")
         return success_count, len(subscribers)
 
+    def get_stats(self):
+        """获取统计数据"""
+        return self.db_manager.get_stats()
+
     def _is_valid_email(self, email):
         """检查邮箱格式是否有效"""
         # 简单的邮箱格式验证
@@ -220,13 +224,15 @@ class SubscriberService:
             server.sendmail(self.sender_email, receivers, message.as_string())
             self.logger.info(f"邮件已发送给{len(receivers)}位订阅者")
 
+            # 更新邮件发送统计
+            if receivers and len(receivers) > 0:
+                self.db_manager.increment_emails_sent(len(receivers))
+                self.logger.info(f"邮件统计已更新，增加 {len(receivers)} 封")
+
             # 关闭连接
             server.quit()
             return len(receivers)
 
-        except smtplib.SMTPException as e:
-            self.logger.error(f"发送邮件失败: {str(e)}")
-            return 0
         except Exception as e:
-            self.logger.error(f"发送邮件时遇到未知错误: {str(e)}")
+            self.logger.error(f"发送邮件失败: {str(e)}")
             return 0

@@ -217,6 +217,87 @@
       text-align: center;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
+    
+    /* 数码时钟样式统计区域 */
+    .stats-container {
+      margin-top: 30px;
+      padding: 20px;
+      background-color: #0f1218;
+      border-radius: 10px;
+      text-align: center;
+      color: #3af;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    .stats-title {
+      color: #3af;
+      font-size: 18px;
+      margin-bottom: 15px;
+      font-weight: bold;
+    }
+    
+    .digital-clock {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .stat-box {
+      background-color: #1e2430;
+      padding: 10px 20px;
+      border-radius: 8px;
+      position: relative;
+      box-shadow: 0 0 10px rgba(0,150,255,0.3);
+    }
+    
+    .stat-label {
+      color: #89e0ff;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    
+    .stat-value {
+      font-size: 28px;
+      font-family: 'DS-Digital', 'Courier New', monospace;
+      color: #3af;
+      text-shadow: 0 0 5px rgba(51,170,255,0.7);
+      letter-spacing: 2px;
+    }
+    
+    /* 为了更像数码屏幕，添加扫描线效果 */
+    .stat-box:after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        transparent 0%,
+        rgba(51,170,255,0.05) 50%,
+        transparent 100%
+      );
+      animation: scan 4s linear infinite;
+      border-radius: 8px;
+    }
+    
+    @keyframes scan {
+      from {
+        transform: translateY(-100%);
+      }
+      to {
+        transform: translateY(100%);
+      }
+    }
+    
+    /* 数码字体样式 */
+    @font-face {
+      font-family: 'DS-Digital';
+      src: url('https://db.onlinewebfonts.com/t/e22b99fd15db82c0d7d453301a716879.woff2') format('woff2');
+      font-weight: normal;
+      font-style: normal;
+    }
   </style>
 </head>
 <body>
@@ -270,6 +351,23 @@
     <div class="alert alert-info text-center" role="alert">
       <p><strong>想要及时获取最新通知？</strong></p>
       <p>现在您可以 <a href="/subscribe" class="alert-link">订阅邮件通知</a>，获取第一时间推送！</p>
+    </div>
+  </div>
+  
+  <!-- 新增统计区域 -->
+  <div class="container">
+    <div class="stats-container">
+      <div class="stats-title">📊 公文通订阅统计</div>
+      <div class="digital-clock">
+        <div class="stat-box">
+          <div class="stat-label">订阅用户数</div>
+          <div class="stat-value" id="subscriber-count">--</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">已发送邮件</div>
+          <div class="stat-value" id="emails-sent">--</div>
+        </div>
+      </div>
     </div>
   </div>
   
@@ -411,10 +509,41 @@
       });
     }
     
+    // 获取并显示统计数据
+    function loadStats() {
+      fetch('/api/get_stats')
+        .then(response => {
+          if (!response.ok) throw new Error(`HTTP错误 ${response.status}`);
+          return response.json();
+        })
+        .then(data => {
+          if (data.success && data.stats) {
+            // 格式化数字（添加千位分隔符）
+            const formatNumber = (num) => {
+              return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            };
+            
+            document.getElementById('subscriber-count').textContent = 
+              formatNumber(data.stats.subscriber_count);
+            document.getElementById('emails-sent').textContent = 
+              formatNumber(data.stats.total_emails_sent);
+          }
+        })
+        .catch(error => {
+          console.error('获取统计数据失败:', error);
+          document.getElementById('subscriber-count').textContent = 'ERR';
+          document.getElementById('emails-sent').textContent = 'ERR';
+        });
+    }
+    
     // 页面加载时执行
     document.addEventListener('DOMContentLoaded', () => {
       updateCurrentDate();
       loadTodayData();
+      loadStats(); // 加载统计数据
+      
+      // 每10分钟更新一次统计数据
+      setInterval(loadStats, 600000);
     });
   </script>
 </body>

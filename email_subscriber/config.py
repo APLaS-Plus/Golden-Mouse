@@ -7,7 +7,7 @@ DB_URL = f"sqlite:///{str(DB_DIR)}/subscribers.sqlite3"
 
 SMTP_SERVER = "smtp.qq.com"
 SMTP_PASSWORD = "yekvywjfbxqfcjae"
-MY_EMAIL = "3681495832@qq.com"
+MY_EMAIL = "snowsant7389@qq.com"
 
 SUBSCRIBER_MASK = r".*@stumail\.sztu\.edu\.cn"
 

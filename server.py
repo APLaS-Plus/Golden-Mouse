@@ -584,6 +584,17 @@ def subscribe_page():
     return app.send_static_file("subscribe.html")  # 新增的订阅页面
 
 
+# 新增API - 获取统计数据
+@app.route("/api/get_stats", methods=["GET"])
+def get_stats():
+    try:
+        stats = subscriber_service.get_stats()
+        return jsonify({"success": True, "stats": stats})
+    except Exception as e:
+        print(f"❌ 获取统计数据错误: {str(e)}")
+        return jsonify({"success": False, "message": f"服务器错误: {str(e)}"}), 500
+
+
 if __name__ == "__main__":
     # 启动定时任务线程
     scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
