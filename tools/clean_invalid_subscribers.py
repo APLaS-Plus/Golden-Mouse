@@ -1,5 +1,10 @@
 import re
+import pathlib
 import sys
+
+ROOT_PATH = pathlib.Path(__file__).parent.resolve()
+sys.path.append(str(ROOT_PATH.parent))
+
 from email_subscriber.config import DB_URL, SUBSCRIBER_MASK
 from email_subscriber.subscriberDB import EmailSubscriberDB, Platform, Base
 from sqlalchemy import create_engine
