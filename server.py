@@ -282,7 +282,7 @@ def send_subscription_confirmation(email, all_platforms, platform_names=None):
                     </div>
                     
                     <p>从现在开始，您将收到所有符合您订阅要求的最新公文通通知。</p>
-                    <p>如需调整订阅设置或取消订阅，请随时访问我们的 <a href="http://localhost:5000/subscribe">订阅管理页面</a>。</p>
+                    <p>如需调整订阅设置或取消订阅，请随时访问我们的 <a href="http://10.108.2.217:5000/subscribe">订阅管理页面</a>。</p>
                 </div>
                 <div class="footer">
                     <p>© 2023 深圳技术大学GoldenMouse - 让校园信息触手可及 🐭</p>
