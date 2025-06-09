@@ -130,6 +130,27 @@
                     </div>
                     
                     <div class="form-group">
+                        <label>推送频率</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <select class="form-select" id="sendFrequency" required>
+                                    <option value="1">每1小时推送一次</option>
+                                    <option value="2">每2小时推送一次</option>
+                                    <option value="3">每3小时推送一次</option>
+                                    <option value="4">每4小时推送一次</option>
+                                    <option value="6">每6小时推送一次</option>
+                                    <option value="8">每8小时推送一次</option>
+                                    <option value="12">每12小时推送一次</option>
+                                    <option value="24" selected>每24小时推送一次</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="form-text text-muted">选择您希望接收邮件的频率，系统会按此频率向您推送最新通知</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
                         <label>订阅偏好</label>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="subscriptionType" id="allPlatforms" value="all" checked>
@@ -286,6 +307,9 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
+                            // 设置发送频率
+                            $('#sendFrequency').val(data.subscription.send_frequency || 24);
+                            
                             // 设置订阅类型单选按钮
                             if (data.subscription.all_platforms) {
                                 $('#allPlatforms').prop('checked', true).trigger('change');
@@ -307,6 +331,8 @@
             e.preventDefault();
 
             const email = document.getElementById('subscribeEmail').value.trim();
+            const sendFrequency = parseInt(document.getElementById('sendFrequency').value);
+            
             // 只做必填校验，不做格式校验，格式交由后端判断
             if (!email) {
                 document.getElementById('subscribeEmail').classList.add('is-invalid');
@@ -314,6 +340,12 @@
                 return;
             }
             document.getElementById('subscribeEmail').classList.remove('is-invalid');
+            
+            // 验证发送频率
+            if (!sendFrequency || sendFrequency < 1 || sendFrequency > 24) {
+                alert('发送频率必须在1-24小时之间');
+                return;
+            }
             
             // 获取订阅类型
             const allPlatforms = document.getElementById('allPlatforms').checked;
@@ -342,7 +374,8 @@
             console.log('准备提交订阅请求:', {
                 email: email,
                 all_platforms: allPlatforms,
-                platform_ids: platformIds
+                platform_ids: platformIds,
+                send_frequency: sendFrequency
             });
             
             // 发送订阅请求
@@ -354,7 +387,8 @@
                 body: JSON.stringify({ 
                     email: email,
                     all_platforms: allPlatforms,
-                    platform_ids: platformIds
+                    platform_ids: platformIds,
+                    send_frequency: sendFrequency
                 })
             })
             .then(response => response.json())
