@@ -3,7 +3,7 @@ import pathlib
 import threading
 import time
 import schedule
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 # 直接引用official_document_crawler中的模块
 from official_document_crawler.crawler.database import Base, Article, DatabaseManager
@@ -27,6 +27,8 @@ subscriber_service = SubscriberService()
 
 # 保存上次发送邮件时的最新文章的URL
 last_sent_urls = set()
+# 添加频率追踪字典，记录每个频率上次发送的时间
+last_send_times_by_frequency = {}
 
 
 # 爬虫任务函数
@@ -39,16 +41,16 @@ def crawl_task():
         )
         # 如果有新内容，发送邮件通知订阅用户
         if new_urls and len(new_urls) > 0:
-            send_new_articles_email(new_urls)
+            send_new_articles_email_by_frequency(new_urls)
         return new_urls
     except Exception as e:
         print(f"[{datetime.now()}] ❌ 爬取任务执行失败: {str(e)}")
         return []
 
 
-# 发送新文章邮件
-def send_new_articles_email(new_urls):
-    global last_sent_urls
+# 根据频率发送新文章邮件
+def send_new_articles_email_by_frequency(new_urls):
+    global last_sent_urls, last_send_times_by_frequency
 
     try:
         # 过滤掉已经发送过的URL
@@ -58,9 +60,7 @@ def send_new_articles_email(new_urls):
             print(f"[{datetime.now()}] 📭 没有新文章需要发送")
             return
 
-        print(
-            f"[{datetime.now()}] 📧 准备发送 {len(truly_new_urls)} 条新文章到订阅邮箱"
-        )
+        print(f"[{datetime.now()}] 📧 准备根据频率发送 {len(truly_new_urls)} 条新文章")
 
         # 查询新文章的详细信息
         session = db_manager.get_session()
@@ -79,123 +79,155 @@ def send_new_articles_email(new_urls):
                 articles_by_platform[platform] = []
             articles_by_platform[platform].append(article)
 
-        # 对每个平台的文章发送邮件
-        for platform, platform_articles in articles_by_platform.items():
-            # 构建邮件主题，使用文章标题组合
-            article_titles = [article.title for article in platform_articles]
-            if len(article_titles) > 3:
-                # 如果标题太多，只显示前3个，然后用"等"代替
-                email_subject = f"【公文通】{article_titles[0]}、{article_titles[1]}、{article_titles[2]}等"
+        print(
+            f"[{datetime.now()}] 📊 文章按平台分组: {list(articles_by_platform.keys())}"
+        )
+
+        current_time = datetime.now()
+
+        # 检查每个频率是否到了发送时间
+        for frequency in range(1, 25):  # 1-24小时
+            if frequency not in last_send_times_by_frequency:
+                # 首次发送，直接发送
+                should_send = True
+                last_send_times_by_frequency[frequency] = current_time
             else:
-                email_subject = f"【公文通】{'、'.join(article_titles)}"
+                # 检查是否达到发送间隔
+                time_since_last = current_time - last_send_times_by_frequency[frequency]
+                should_send = time_since_last >= timedelta(hours=frequency)
+                if should_send:
+                    last_send_times_by_frequency[frequency] = current_time
 
-            # 构建HTML邮件内容 - 使用卡片式布局
-            html_content = f"""
-            <html>
-            <head>
-                <style>
-                    body {{
-                        font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                        background-color: #f5f5f5;
-                        color: #333;
-                        padding: 20px;
-                        max-width: 600px;
-                        margin: 0 auto;
-                    }}
-                    .header {{
-                        text-align: center;
-                        margin-bottom: 20px;
-                        padding-bottom: 10px;
-                        border-bottom: 1px solid #eee;
-                    }}
-                    .article-card {{
-                        background-color: white;
-                        border-radius: 8px;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                        padding: 15px;
-                        margin-bottom: 15px;
-                    }}
-                    .title {{
-                        font-size: 18px;
-                        font-weight: bold;
-                        margin-bottom: 8px;
-                        color: #003366;
-                    }}
-                    .title a {{
-                        color: #003366;
-                        text-decoration: none;
-                    }}
-                    .title a:hover {{
-                        text-decoration: underline;
-                    }}
-                    .meta {{
-                        display: flex;
-                        justify-content: space-between;
-                        color: #666;
-                        font-size: 14px;
-                        margin-top: 5px;
-                    }}
-                    .platform {{
-                        font-weight: bold;
-                        color: #0055a4;
-                    }}
-                    .date {{
-                        color: #777;
-                    }}
-                    .footer {{
-                        text-align: center;
-                        margin-top: 20px;
-                        font-size: 12px;
-                        color: #888;
-                    }}
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <h2>📝 深圳技术大学公文通更新 </h2>
-                    <p>以下是来自<b>{platform}</b>的最新通知：</p>
-                </div>
-            """
+            if not should_send:
+                continue
 
-            for article in platform_articles:
-                date_display = (
-                    f"{article.date} {article.detail_time}"
-                    if article.detail_time
-                    else article.date
+            print(f"[{datetime.now()}] 📤 开始处理频率{frequency}小时的订阅者")
+
+            # 对每个平台的文章发送邮件给对应频率的订阅者
+            for platform, platform_articles in articles_by_platform.items():
+                print(
+                    f"[{datetime.now()}] 📤 处理平台: {platform}, 文章数: {len(platform_articles)}, 频率: {frequency}小时"
                 )
 
-                html_content += f"""
-                <div class="article-card">
-                    <div class="title">
-                        <a href="{article.url}" target="_blank">{article.title}</a>
+                # 构建邮件主题
+                article_titles = [article.title for article in platform_articles]
+                if len(article_titles) > 3:
+                    email_subject = f"【公文通】{article_titles[0]}、{article_titles[1]}、{article_titles[2]}等"
+                else:
+                    email_subject = f"【公文通】{'、'.join(article_titles)}"
+
+                # 构建HTML邮件内容
+                html_content = f"""
+                <html>
+                <head>
+                    <style>
+                        body {{
+                            font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                            background-color: #f5f5f5;
+                            color: #333;
+                            padding: 20px;
+                            max-width: 600px;
+                            margin: 0 auto;
+                        }}
+                        .header {{
+                            text-align: center;
+                            margin-bottom: 20px;
+                            padding-bottom: 10px;
+                            border-bottom: 1px solid #eee;
+                        }}
+                        .article-card {{
+                            background-color: white;
+                            border-radius: 8px;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                            padding: 15px;
+                            margin-bottom: 15px;
+                        }}
+                        .title {{
+                            font-size: 18px;
+                            font-weight: bold;
+                            margin-bottom: 8px;
+                            color: #003366;
+                        }}
+                        .title a {{
+                            color: #003366;
+                            text-decoration: none;
+                        }}
+                        .title a:hover {{
+                            text-decoration: underline;
+                        }}
+                        .meta {{
+                            display: flex;
+                            justify-content: space-between;
+                            color: #666;
+                            font-size: 14px;
+                            margin-top: 5px;
+                        }}
+                        .platform {{
+                            font-weight: bold;
+                            color: #0055a4;
+                        }}
+                        .date {{
+                            color: #777;
+                        }}
+                        .footer {{
+                            text-align: center;
+                            margin-top: 20px;
+                            font-size: 12px;
+                            color: #888;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h2>📝 深圳技术大学公文通更新</h2>
+                        <p>以下是来自<b>{platform}</b>的最新通知（每{frequency}小时推送）：</p>
                     </div>
-                    <div class="meta">
-                        <span class="platform">📣 {article.source}</span>
-                        <span class="date">🕒 {date_display}</span>
-                    </div>
-                </div>
                 """
 
-            html_content += """
-                <div class="footer">
-                    <p>感谢您的订阅！如需调整订阅设置，请访问 <a href="http://localhost:5000/subscribe">订阅页面</a>。</p>
-                    <p>© 2023 深圳技术大学GoldenMouse - 让校园信息触手可及 🐭</p>
-                </div>
-            </body>
-            </html>
-            """
+                for article in platform_articles:
+                    date_display = (
+                        f"{article.date} {article.detail_time}"
+                        if article.detail_time
+                        else article.date
+                    )
 
-            # 发送邮件
-            success, total = subscriber_service.send_email_to_all_subscribers(
-                subject=email_subject,
-                content=html_content,
-                html=True,
-                source_platform=platform,
-            )
+                    html_content += f"""
+                    <div class="article-card">
+                        <div class="title">
+                            <a href="{article.url}" target="_blank">{article.title}</a>
+                        </div>
+                        <div class="meta">
+                            <span class="platform">📣 {article.source}</span>
+                            <span class="date">🕒 {date_display}</span>
+                        </div>
+                    </div>
+                    """
 
-            print(
-                f"[{datetime.now()}] ✅ 发送 {platform} 平台邮件完成，成功: {success}/{total}"
-            )
+                html_content += f"""
+                    <div class="footer">
+                        <p>您当前的推送频率：每{frequency}小时</p>
+                        <p>感谢您的订阅！如需调整订阅设置，请访问 <a href="http://localhost:5000/subscribe">订阅页面</a>。</p>
+                        <p>© 2023 深圳技术大学GoldenMouse - 让校园信息触手可及 🐭</p>
+                    </div>
+                </body>
+                </html>
+                """
+
+                # 发送邮件给对应频率的订阅者
+                success, total = (
+                    subscriber_service.send_email_to_subscribers_by_frequency(
+                        subject=email_subject,
+                        content=html_content,
+                        html=True,
+                        source_platform=platform,
+                        frequency_hours=frequency,
+                    )
+                )
+
+                if total > 0:
+                    print(
+                        f"[{datetime.now()}] ✅ 发送 {platform} 平台邮件完成（频率{frequency}小时），成功: {success}/{total}"
+                    )
 
         # 更新已发送URL集合
         last_sent_urls.update(truly_new_urls)
@@ -209,8 +241,16 @@ def send_new_articles_email(new_urls):
         print(f"[{datetime.now()}] ❌ 发送新文章邮件失败: {str(e)}")
 
 
+# 保留原有函数以兼容
+def send_new_articles_email(new_urls):
+    """兼容性函数，调用新的频率发送函数"""
+    send_new_articles_email_by_frequency(new_urls)
+
+
 # 发送订阅成功确认邮件
-def send_subscription_confirmation(email, all_platforms, platform_names=None):
+def send_subscription_confirmation(
+    email, all_platforms, platform_names=None, send_frequency=1
+):
     try:
         # 确定订阅的平台类型描述
         if all_platforms:
@@ -278,10 +318,10 @@ def send_subscription_confirmation(email, all_platforms, platform_names=None):
                     
                     <div class="highlight">
                         <p>📧 订阅邮箱：{email}</p>
-                        <p>🔄 更新频率：每篇新文章发布后自动推送</p>
+                        <p>🔄 推送频率：每{send_frequency}小时推送一次</p>
                     </div>
                     
-                    <p>从现在开始，您将收到所有符合您订阅要求的最新公文通通知。</p>
+                    <p>从现在开始，您将按照设定的频率收到所有符合您订阅要求的最新公文通通知。</p>
                     <p>如需调整订阅设置或取消订阅，请随时访问我们的 <a href="http://10.108.2.217:5000/subscribe">订阅管理页面</a>。</p>
                 </div>
                 <div class="footer">
@@ -361,13 +401,27 @@ def subscribe():
         email = data.get("email", "").strip()
         all_platforms = data.get("all_platforms", True)
         platform_ids = data.get("platform_ids", [])
+        send_frequency = data.get("send_frequency", 24)
 
         print(
-            f"📝 收到订阅请求: email={email}, all_platforms={all_platforms}, platform_ids={platform_ids}"
+            f"📝 收到订阅请求: email={email}, all_platforms={all_platforms}, platform_ids={platform_ids}, send_frequency={send_frequency}"
         )
 
         if not email:
             return jsonify({"success": False, "message": "邮箱不能为空"}), 400
+
+        # 验证发送频率
+        try:
+            send_frequency = int(send_frequency)
+            if not (1 <= send_frequency <= 24):
+                return (
+                    jsonify(
+                        {"success": False, "message": "发送频率必须在1-24小时之间"}
+                    ),
+                    400,
+                )
+        except (ValueError, TypeError):
+            return jsonify({"success": False, "message": "发送频率格式无效"}), 400
 
         # 转换平台ID为整数
         if platform_ids and isinstance(platform_ids, list):
@@ -383,8 +437,8 @@ def subscribe():
             print("⚠️ 未选择任何平台，但设置了非全部平台订阅")
             return jsonify({"success": False, "message": "请至少选择一个平台"}), 400
 
-        success, message = subscriber_service.add_subscriber(
-            email, platform_ids, all_platforms
+        success, message, is_new_subscriber = subscriber_service.add_subscriber(
+            email, platform_ids, all_platforms, send_frequency
         )
 
         if success:
@@ -408,8 +462,14 @@ def subscribe():
                 finally:
                     db_session.close()
 
-            # 发送订阅确认邮件
-            send_subscription_confirmation(email, all_platforms, platform_names)
+            # 只有新订阅者才发送确认邮件
+            if is_new_subscriber:
+                send_subscription_confirmation(
+                    email, all_platforms, platform_names, send_frequency
+                )
+                print(f"✅ 新用户 {email} 订阅成功")
+            else:
+                print(f"✅ 用户 {email} 更新订阅设置成功")
 
         return jsonify({"success": success, "message": message})
 

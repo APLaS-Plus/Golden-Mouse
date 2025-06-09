@@ -47,6 +47,7 @@ class EmailSubscriberDB(Base):
     id = Column(Integer, primary_key=True)
     email = Column(String, unique=True)  # 邮箱地址唯一
     all_platforms = Column(Boolean, default=True)  # 是否订阅所有平台
+    send_frequency = Column(Integer, default=24)  # 发送频率（小时），默认24小时
 
     # 与平台的多对多关系
     platforms = relationship(
@@ -54,7 +55,7 @@ class EmailSubscriberDB(Base):
     )
 
     def __repr__(self):
-        return f"EmailSubscriber(id={self.id}, email='{self.email}', all_platforms={self.all_platforms})"
+        return f"EmailSubscriber(id={self.id}, email='{self.email}', all_platforms={self.all_platforms}, send_frequency={self.send_frequency})"
 
 
 class EmailStats(Base):
@@ -171,13 +172,34 @@ class EmailSubscriberManager:
         finally:
             session.close()
 
-    def add_subscriber(self, email, platform_ids=None, all_platforms=True):
+    def get_platform_id_by_name(self, platform_name):
+        """根据平台名称获取平台ID"""
+        session = self.get_session()
+        try:
+            platform = (
+                session.query(Platform).filter(Platform.name == platform_name).first()
+            )
+            return platform.id if platform else None
+        finally:
+            session.close()
+
+    def add_subscriber(
+        self, email, platform_ids=None, all_platforms=True, send_frequency=24
+    ):
         """添加订阅者到数据库"""
         session = self.get_session()
         try:
+            # 验证发送频率
+            try:
+                send_frequency = int(send_frequency)
+                if not (1 <= send_frequency <= 24):
+                    send_frequency = 24
+            except (ValueError, TypeError):
+                send_frequency = 24
+
             # 打印调试信息
             print(
-                f"尝试添加/更新订阅者: {email}, all_platforms={all_platforms}, platform_ids={platform_ids}"
+                f"尝试添加/更新订阅者: {email}, all_platforms={all_platforms}, platform_ids={platform_ids}, send_frequency={send_frequency}"
             )
 
             # 检查邮箱是否已存在
@@ -187,10 +209,13 @@ class EmailSubscriberManager:
                 .first()
             )
 
+            is_new_subscriber = existing is None
+
             if existing:
                 print(f"邮箱 {email} 已存在，更新订阅设置")
-                # 如果已存在，更新订阅平台
+                # 如果已存在，更新订阅平台和频率
                 existing.all_platforms = all_platforms
+                existing.send_frequency = send_frequency
 
                 if all_platforms:
                     # 全平台订阅，清空特定平台
@@ -211,11 +236,15 @@ class EmailSubscriberManager:
                 session.commit()
                 logging.info(f"更新订阅者订阅平台: {email}")
                 print(f"成功更新 {email} 的订阅设置")
-                return True
+                return True, is_new_subscriber
             else:
                 # 创建新订阅者
                 print(f"创建新订阅者: {email}")
-                subscriber = EmailSubscriberDB(email=email, all_platforms=all_platforms)
+                subscriber = EmailSubscriberDB(
+                    email=email,
+                    all_platforms=all_platforms,
+                    send_frequency=send_frequency,
+                )
 
                 if not all_platforms and platform_ids and len(platform_ids) > 0:
                     # 如果不是全平台订阅，设置特定平台
@@ -231,17 +260,17 @@ class EmailSubscriberManager:
                 session.commit()
                 logging.info(f"添加订阅者成功: {email}")
                 print(f"成功添加新订阅者: {email}")
-                return True
+                return True, is_new_subscriber
         except IntegrityError as e:
             session.rollback()
             logging.warning(f"订阅者邮箱已存在(并发添加): {email}, 错误: {str(e)}")
             print(f"数据库完整性错误: {str(e)}")
-            return False
+            return False, False
         except Exception as e:
             session.rollback()
             logging.error(f"添加订阅者失败: {str(e)}")
             print(f"添加订阅者失败: {str(e)}")
-            return False
+            return False, False
         finally:
             session.close()
 
@@ -288,10 +317,28 @@ class EmailSubscriberManager:
         """根据邮箱获取订阅者信息"""
         session = self.get_session()
         try:
+            from sqlalchemy.orm import joinedload
+
             return (
                 session.query(EmailSubscriberDB)
+                .options(joinedload(EmailSubscriberDB.platforms))
                 .filter(EmailSubscriberDB.email == email)
                 .first()
+            )
+        finally:
+            session.close()
+
+    def get_subscribers_by_frequency(self, frequency_hours):
+        """根据发送频率获取订阅者"""
+        session = self.get_session()
+        try:
+            from sqlalchemy.orm import joinedload
+
+            return (
+                session.query(EmailSubscriberDB)
+                .options(joinedload(EmailSubscriberDB.platforms))
+                .filter(EmailSubscriberDB.send_frequency == frequency_hours)
+                .all()
             )
         finally:
             session.close()
