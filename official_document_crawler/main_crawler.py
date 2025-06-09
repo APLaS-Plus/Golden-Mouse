@@ -12,7 +12,7 @@ from .crawler.fetcher import fetch_articles_batch
 from .crawler.parser import process_article_details
 
 
-def main_crawler(start_page=1, end_page=10, mode="all"):
+def main_crawler(start_page=0, end_page=10, mode="all"):
     """主程序入口"""
     # 设置日志
     setup_logging()

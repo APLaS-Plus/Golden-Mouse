@@ -27,15 +27,17 @@ subscriber_service = SubscriberService()
 
 # 保存上次发送邮件时的最新文章的URL
 last_sent_urls = set()
-# 添加频率追踪字典，记录每个频率上次发送的时间
-last_send_times_by_frequency = {}
+# 改进频率追踪：为每个频率维护待发送文章列表和上次发送时间
+pending_articles_by_frequency = (
+    {}
+)  # {frequency: {'articles': [], 'last_send_time': datetime}}
 
 
 # 爬虫任务函数
 def crawl_task():
     print(f"[{datetime.now()}] ⏰ 开始执行定时爬取任务...")
     try:
-        new_urls = main_crawler(start_page=1, end_page=2, mode="all")
+        new_urls = main_crawler(start_page=0, end_page=2, mode="all")
         print(
             f"[{datetime.now()}] ✅ 爬取完成，发现 {len(new_urls) if new_urls else 0} 条新内容"
         )
@@ -48,9 +50,9 @@ def crawl_task():
         return []
 
 
-# 根据频率发送新文章邮件
+# 重构邮件发送逻辑
 def send_new_articles_email_by_frequency(new_urls):
-    global last_sent_urls, last_send_times_by_frequency
+    global last_sent_urls, pending_articles_by_frequency
 
     try:
         # 过滤掉已经发送过的URL
@@ -60,61 +62,81 @@ def send_new_articles_email_by_frequency(new_urls):
             print(f"[{datetime.now()}] 📭 没有新文章需要发送")
             return
 
-        print(f"[{datetime.now()}] 📧 准备根据频率发送 {len(truly_new_urls)} 条新文章")
+        print(
+            f"[{datetime.now()}] 📧 发现 {len(truly_new_urls)} 条新文章，添加到待发送队列"
+        )
 
         # 查询新文章的详细信息
         session = db_manager.get_session()
-        articles = session.query(Article).filter(Article.url.in_(truly_new_urls)).all()
+        new_articles = (
+            session.query(Article).filter(Article.url.in_(truly_new_urls)).all()
+        )
 
-        if not articles:
+        if not new_articles:
             print("❌ 没有找到对应的文章详情")
             session.close()
             return
 
-        # 按来源平台分组文章
-        articles_by_platform = {}
-        for article in articles:
-            platform = article.source
-            if platform not in articles_by_platform:
-                articles_by_platform[platform] = []
-            articles_by_platform[platform].append(article)
+        # 将新文章添加到各频率的待发送队列
+        for frequency in range(1, 25):  # 1-24小时
+            if frequency not in pending_articles_by_frequency:
+                pending_articles_by_frequency[frequency] = {
+                    "articles": [],
+                    "last_send_time": None,
+                }
 
-        print(
-            f"[{datetime.now()}] 📊 文章按平台分组: {list(articles_by_platform.keys())}"
-        )
+            # 将新文章添加到该频率的队列
+            pending_articles_by_frequency[frequency]["articles"].extend(new_articles)
 
         current_time = datetime.now()
 
         # 检查每个频率是否到了发送时间
-        for frequency in range(1, 25):  # 1-24小时
-            if frequency not in last_send_times_by_frequency:
-                # 首次发送，直接发送
+        for frequency in range(1, 25):
+            frequency_data = pending_articles_by_frequency[frequency]
+
+            # 检查是否有待发送文章
+            if not frequency_data["articles"]:
+                continue
+
+            # 检查是否到了发送时间
+            should_send = False
+            if frequency_data["last_send_time"] is None:
+                # 首次发送
                 should_send = True
-                last_send_times_by_frequency[frequency] = current_time
             else:
                 # 检查是否达到发送间隔
-                time_since_last = current_time - last_send_times_by_frequency[frequency]
+                time_since_last = current_time - frequency_data["last_send_time"]
                 should_send = time_since_last >= timedelta(hours=frequency)
-                if should_send:
-                    last_send_times_by_frequency[frequency] = current_time
 
             if not should_send:
                 continue
 
-            print(f"[{datetime.now()}] 📤 开始处理频率{frequency}小时的订阅者")
+            print(
+                f"[{datetime.now()}] 📤 开始处理频率{frequency}小时的订阅者，待发文章数: {len(frequency_data['articles'])}"
+            )
 
-            # 对每个平台的文章发送邮件给对应频率的订阅者
+            # 按平台分组文章
+            articles_by_platform = {}
+            for article in frequency_data["articles"]:
+                platform = article.source
+                if platform not in articles_by_platform:
+                    articles_by_platform[platform] = []
+                articles_by_platform[platform].append(article)
+
+            # 发送每个平台的文章给对应订阅者
+            total_sent = 0
             for platform, platform_articles in articles_by_platform.items():
                 print(
                     f"[{datetime.now()}] 📤 处理平台: {platform}, 文章数: {len(platform_articles)}, 频率: {frequency}小时"
                 )
 
-                # 构建邮件主题
-                article_titles = [article.title for article in platform_articles]
-                if len(article_titles) > 3:
-                    email_subject = f"【公文通】{article_titles[0]}、{article_titles[1]}、{article_titles[2]}等"
+                # 构建邮件主题 - 显示文章数量
+                if len(platform_articles) == 1:
+                    email_subject = f"【公文通】{platform_articles[0].title}"
                 else:
-                    email_subject = f"【公文通】{'、'.join(article_titles)}"
+                    email_subject = (
+                        f"【公文通】{platform} - {len(platform_articles)}条新通知"
+                    )
 
                 # 构建HTML邮件内容
                 html_content = f"""
@@ -132,8 +154,15 @@ def send_new_articles_email_by_frequency(new_urls):
                         .header {{
                             text-align: center;
                             margin-bottom: 20px;
-                            padding-bottom: 10px;
-                            border-bottom: 1px solid #eee;
+                            padding-bottom: 15px;
+                            border-bottom: 2px solid #007bff;
+                        }}
+                        .summary {{
+                            background-color: #e7f3ff;
+                            padding: 15px;
+                            border-radius: 8px;
+                            margin-bottom: 20px;
+                            text-align: center;
                         }}
                         .article-card {{
                             background-color: white;
@@ -141,6 +170,7 @@ def send_new_articles_email_by_frequency(new_urls):
                             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                             padding: 15px;
                             margin-bottom: 15px;
+                            border-left: 4px solid #007bff;
                         }}
                         .title {{
                             font-size: 18px;
@@ -171,20 +201,26 @@ def send_new_articles_email_by_frequency(new_urls):
                         }}
                         .footer {{
                             text-align: center;
-                            margin-top: 20px;
+                            margin-top: 25px;
                             font-size: 12px;
                             color: #888;
+                            padding-top: 15px;
+                            border-top: 1px solid #eee;
                         }}
                     </style>
                 </head>
                 <body>
                     <div class="header">
                         <h2>📝 深圳技术大学公文通更新</h2>
-                        <p>以下是来自<b>{platform}</b>的最新通知（每{frequency}小时推送）：</p>
+                    </div>
+                    <div class="summary">
+                        <h3>📊 本次推送汇总</h3>
+                        <p><strong>{platform}</strong> 平台有 <strong>{len(platform_articles)}</strong> 条新通知</p>
+                        <p>推送频率：每{frequency}小时</p>
                     </div>
                 """
 
-                for article in platform_articles:
+                for i, article in enumerate(platform_articles, 1):
                     date_display = (
                         f"{article.date} {article.detail_time}"
                         if article.detail_time
@@ -194,6 +230,7 @@ def send_new_articles_email_by_frequency(new_urls):
                     html_content += f"""
                     <div class="article-card">
                         <div class="title">
+                            <span style="color: #999; font-size: 14px;">#{i}</span>
                             <a href="{article.url}" target="_blank">{article.title}</a>
                         </div>
                         <div class="meta">
@@ -205,7 +242,7 @@ def send_new_articles_email_by_frequency(new_urls):
 
                 html_content += f"""
                     <div class="footer">
-                        <p>您当前的推送频率：每{frequency}小时</p>
+                        <p>您当前的推送频率：每{frequency}小时推送一次</p>
                         <p>感谢您的订阅！如需调整订阅设置，请访问 <a href="http://localhost:5000/subscribe">订阅页面</a>。</p>
                         <p>© 2023 深圳技术大学GoldenMouse - 让校园信息触手可及 🐭</p>
                     </div>
@@ -224,10 +261,19 @@ def send_new_articles_email_by_frequency(new_urls):
                     )
                 )
 
+                total_sent += total
                 if total > 0:
                     print(
                         f"[{datetime.now()}] ✅ 发送 {platform} 平台邮件完成（频率{frequency}小时），成功: {success}/{total}"
                     )
+
+            # 更新该频率的发送时间并清空待发送队列
+            if total_sent > 0:
+                frequency_data["last_send_time"] = current_time
+                frequency_data["articles"] = []
+                print(
+                    f"[{datetime.now()}] ✅ 频率{frequency}小时推送完成，已清空待发送队列"
+                )
 
         # 更新已发送URL集合
         last_sent_urls.update(truly_new_urls)
