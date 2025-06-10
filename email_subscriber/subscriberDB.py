@@ -6,11 +6,14 @@ from sqlalchemy import (
     Table,
     ForeignKey,
     Boolean,
+    DateTime,
+    text,  # 添加 text 导入
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy.exc import IntegrityError
 import logging
 import pathlib
+from datetime import datetime
 from .config import DB_DIR, DB_URL
 
 # 创建 Base 类
@@ -48,6 +51,7 @@ class EmailSubscriberDB(Base):
     email = Column(String, unique=True)  # 邮箱地址唯一
     all_platforms = Column(Boolean, default=True)  # 是否订阅所有平台
     send_frequency = Column(Integer, default=24)  # 发送频率（小时），默认24小时
+    last_email_sent_time = Column(DateTime, nullable=True)  # 上次发送邮件的时间
 
     # 与平台的多对多关系
     platforms = relationship(
@@ -55,7 +59,7 @@ class EmailSubscriberDB(Base):
     )
 
     def __repr__(self):
-        return f"EmailSubscriber(id={self.id}, email='{self.email}', all_platforms={self.all_platforms}, send_frequency={self.send_frequency})"
+        return f"EmailSubscriber(id={self.id}, email='{self.email}', all_platforms={self.all_platforms}, send_frequency={self.send_frequency}, last_sent={self.last_email_sent_time})"
 
 
 class EmailStats(Base):
@@ -87,9 +91,70 @@ class EmailSubscriberManager:
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 
+        # 检查并升级数据库结构
+        self._upgrade_database_structure()
+
         # 初始化平台数据
         self._init_platforms()
+
+        # 检查数据库兼容性并处理老用户
+        self._ensure_database_compatibility()
+
         print("数据库初始化完成")
+
+    def _upgrade_database_structure(self):
+        """升级数据库结构，添加缺失的字段"""
+        try:
+            # 检查 last_email_sent_time 字段是否存在
+            with self.engine.connect() as conn:
+                # 获取表信息
+                result = conn.execute(text("PRAGMA table_info(email_subscribers)"))
+                columns = [row[1] for row in result.fetchall()]
+
+                if "last_email_sent_time" not in columns:
+                    print("检测到数据库结构需要升级：添加 last_email_sent_time 字段")
+                    # 添加缺失的字段
+                    conn.execute(
+                        text(
+                            "ALTER TABLE email_subscribers ADD COLUMN last_email_sent_time DATETIME"
+                        )
+                    )
+                    conn.commit()
+                    print("数据库结构升级完成：已添加 last_email_sent_time 字段")
+                    logging.info("数据库结构升级：添加了 last_email_sent_time 字段")
+                else:
+                    print("数据库结构检查完成：last_email_sent_time 字段已存在")
+
+        except Exception as e:
+            print(f"数据库结构升级失败: {str(e)}")
+            logging.error(f"数据库结构升级失败: {str(e)}")
+            # 不抛出异常，继续执行其他初始化步骤
+
+    def _ensure_database_compatibility(self):
+        """确保数据库兼容性，处理版本升级前的用户数据"""
+        session = self.get_session()
+        try:
+            # 检查是否有last_email_sent_time字段为NULL的老用户
+            old_users_count = (
+                session.query(EmailSubscriberDB)
+                .filter(EmailSubscriberDB.last_email_sent_time.is_(None))
+                .count()
+            )
+
+            if old_users_count > 0:
+                print(
+                    f"发现 {old_users_count} 个版本升级前的老用户（last_email_sent_time为NULL）"
+                )
+                print("这些用户将在下次推送时收到邮件（作为首次推送处理）")
+                logging.info(f"数据库兼容性检查完成，发现 {old_users_count} 个老用户")
+            else:
+                print("所有用户数据都已是新版本格式")
+
+        except Exception as e:
+            logging.error(f"数据库兼容性检查失败: {str(e)}")
+            print(f"数据库兼容性检查失败: {str(e)}")
+        finally:
+            session.close()
 
     def _init_platforms(self):
         """初始化平台数据"""
@@ -378,6 +443,127 @@ class EmailSubscriberManager:
         except Exception as e:
             session.rollback()
             logging.error(f"更新邮件统计失败: {str(e)}")
+            return 0
+        finally:
+            session.close()
+
+    def get_subscribers_due_for_email(self, current_time=None):
+        """获取应该接收邮件的订阅者（基于上次发送时间和频率）"""
+        if current_time is None:
+            current_time = datetime.now()
+
+        session = self.get_session()
+        try:
+            from sqlalchemy.orm import joinedload
+
+            # 查询条件：
+            # 1. 从未发送过邮件的用户（last_email_sent_time为NULL） - 包括版本升级前的老用户
+            # 2. 距离上次发送时间已超过设定频率的用户
+            subscribers = []
+
+            # 获取所有订阅者
+            all_subscribers = (
+                session.query(EmailSubscriberDB)
+                .options(joinedload(EmailSubscriberDB.platforms))
+                .all()
+            )
+
+            for subscriber in all_subscribers:
+                should_send = False
+
+                if subscriber.last_email_sent_time is None:
+                    # 从未发送过邮件（包括版本升级前的老用户）
+                    should_send = True
+                    logging.debug(
+                        f"用户 {subscriber.email} 首次推送或版本升级前用户，将发送邮件"
+                    )
+                else:
+                    # 计算距离上次发送的时间（小时）
+                    time_diff = current_time - subscriber.last_email_sent_time
+                    hours_since_last = time_diff.total_seconds() / 3600
+
+                    # 检查是否达到发送频率
+                    if hours_since_last >= subscriber.send_frequency:
+                        should_send = True
+                        logging.debug(
+                            f"用户 {subscriber.email} 距离上次发送已过 {hours_since_last:.1f} 小时，"
+                            f"设定频率 {subscriber.send_frequency} 小时，将发送邮件"
+                        )
+                    else:
+                        logging.debug(
+                            f"用户 {subscriber.email} 距离上次发送仅 {hours_since_last:.1f} 小时，"
+                            f"设定频率 {subscriber.send_frequency} 小时，暂不发送"
+                        )
+
+                if should_send:
+                    subscribers.append(subscriber)
+
+            logging.info(
+                f"共找到 {len(subscribers)} 个需要推送的用户（总用户数: {len(all_subscribers)}）"
+            )
+            return subscribers
+
+        finally:
+            session.close()
+
+    def update_last_email_sent_time(self, subscriber_id, sent_time=None):
+        """更新订阅者的最后邮件发送时间"""
+        if sent_time is None:
+            sent_time = datetime.now()
+
+        session = self.get_session()
+        try:
+            subscriber = (
+                session.query(EmailSubscriberDB)
+                .filter(EmailSubscriberDB.id == subscriber_id)
+                .first()
+            )
+
+            if subscriber:
+                old_time = subscriber.last_email_sent_time
+                subscriber.last_email_sent_time = sent_time
+                session.commit()
+
+                if old_time is None:
+                    logging.info(
+                        f"首次更新订阅者 {subscriber.email} 的发送时间为 {sent_time}（版本升级兼容）"
+                    )
+                else:
+                    logging.info(
+                        f"更新订阅者 {subscriber.email} 的发送时间：{old_time} -> {sent_time}"
+                    )
+                return True
+            else:
+                logging.warning(f"未找到ID为 {subscriber_id} 的订阅者")
+                return False
+
+        except Exception as e:
+            session.rollback()
+            logging.error(f"更新发送时间失败: {str(e)}")
+            return False
+        finally:
+            session.close()
+
+    def batch_update_last_email_sent_time(self, subscriber_ids, sent_time=None):
+        """批量更新订阅者的最后邮件发送时间"""
+        if sent_time is None:
+            sent_time = datetime.now()
+
+        session = self.get_session()
+        try:
+            updated_count = (
+                session.query(EmailSubscriberDB)
+                .filter(EmailSubscriberDB.id.in_(subscriber_ids))
+                .update({"last_email_sent_time": sent_time}, synchronize_session=False)
+            )
+
+            session.commit()
+            logging.info(f"批量更新了 {updated_count} 个订阅者的发送时间为 {sent_time}")
+            return updated_count
+
+        except Exception as e:
+            session.rollback()
+            logging.error(f"批量更新发送时间失败: {str(e)}")
             return 0
         finally:
             session.close()

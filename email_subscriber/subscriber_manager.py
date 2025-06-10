@@ -191,7 +191,7 @@ class SubscriberService:
         self.logger.info(f"开始筛选订阅者，来源平台: {source_platform}")
         self.logger.info(f"总订阅者数量: {len(subscribers)}")
 
-        # 如果指定了来源平台，筛选订阅了该平台的用户
+        # 如果指定了来源平台，筛选订订阅了该平台的用户
         if source_platform:
             # 先根据平台名称获取平台ID
             platform_id = self.db_manager.get_platform_id_by_name(source_platform)
@@ -307,6 +307,119 @@ class SubscriberService:
             f"频率{frequency_hours}小时邮件发送完成，成功: {success_count}/{len(subscribers)}"
         )
         return success_count, len(subscribers)
+
+    def send_email_to_subscribers_by_individual_frequency(
+        self, subject, content, html=False, source_platform=None
+    ):
+        """
+        根据每个订阅者的个人推送频率发送邮件
+
+        Args:
+            subject: 邮件主题
+            content: 邮件内容
+            html: 是否为HTML格式内容
+            source_platform: 文章来源平台名称
+
+        Returns:
+            tuple: (成功发送数量, 总符合条件订阅者数量)
+        """
+        from datetime import datetime
+
+        # 获取当前应该接收邮件的订阅者
+        due_subscribers = self.db_manager.get_subscribers_due_for_email()
+
+        if not due_subscribers:
+            self.logger.info("当前没有需要推送的订阅者")
+            return 0, 0
+
+        self.logger.info(f"找到 {len(due_subscribers)} 个需要推送的订阅者")
+
+        # 统计首次发送的用户数量（兼容性监控）
+        first_time_users = [
+            sub for sub in due_subscribers if sub.last_email_sent_time is None
+        ]
+        if first_time_users:
+            self.logger.info(
+                f"其中 {len(first_time_users)} 个用户为首次推送（包括版本升级前的老用户）"
+            )
+
+        # 如果指定了来源平台，筛选订阅了该平台的用户
+        if source_platform:
+            platform_id = self.db_manager.get_platform_id_by_name(source_platform)
+            if platform_id is None:
+                self.logger.warning(f"未找到平台: {source_platform}")
+                return 0, 0
+
+            self.logger.info(f"平台 {source_platform} 的ID: {platform_id}")
+
+            filtered_subscribers = []
+            for sub in due_subscribers:
+                if sub.all_platforms:
+                    filtered_subscribers.append(sub)
+                    self.logger.debug(
+                        f"用户 {sub.email} 订阅所有平台，包含在发送列表中"
+                    )
+                else:
+                    subscribed_platform_ids = [p.id for p in sub.platforms]
+                    if platform_id in subscribed_platform_ids:
+                        filtered_subscribers.append(sub)
+                        self.logger.debug(
+                            f"用户 {sub.email} 订阅了平台 {source_platform}，包含在发送列表中"
+                        )
+                    else:
+                        self.logger.debug(
+                            f"用户 {sub.email} 未订阅平台 {source_platform}，跳过"
+                        )
+
+            due_subscribers = filtered_subscribers
+            self.logger.info(f"筛选后的订阅者数量: {len(due_subscribers)}")
+
+        if not due_subscribers:
+            self.logger.info("筛选后没有需要推送的订阅者")
+            return 0, 0
+
+        # 按用户逐个发送邮件（确保每个用户的发送时间都能正确记录）
+        success_count = 0
+        current_time = datetime.now()
+
+        for subscriber in due_subscribers:
+            try:
+                # 记录是否为首次发送（用于日志）
+                is_first_time = subscriber.last_email_sent_time is None
+
+                # 为单个用户发送邮件
+                individual_success = self._send_batch_email(
+                    subject=subject,
+                    content=content,
+                    receivers=[subscriber.email],
+                    is_html=html,
+                )
+
+                if individual_success > 0:
+                    # 发送成功，更新该用户的最后发送时间
+                    self.db_manager.update_last_email_sent_time(
+                        subscriber.id, current_time
+                    )
+                    success_count += 1
+
+                    if is_first_time:
+                        self.logger.info(
+                            f"成功发送邮件给 {subscriber.email}（首次推送），推送频率: {subscriber.send_frequency}小时"
+                        )
+                    else:
+                        self.logger.info(
+                            f"成功发送邮件给 {subscriber.email}，推送频率: {subscriber.send_frequency}小时"
+                        )
+                else:
+                    self.logger.warning(f"发送邮件给 {subscriber.email} 失败")
+
+            except Exception as e:
+                self.logger.error(f"发送邮件给 {subscriber.email} 时出错: {str(e)}")
+
+        self.logger.info(
+            f"个性化频率邮件发送完成，成功: {success_count}/{len(due_subscribers)}"
+        )
+        return success_count, len(due_subscribers)
 
     def get_stats(self):
         """获取统计数据"""
