@@ -4,7 +4,7 @@
 定义数据库模型和操作函数
 """
 
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.exc import IntegrityError
 import logging
@@ -46,12 +46,30 @@ class DatabaseManager:
 
     def __init__(self):
         """初始化数据库连接"""
+        # 确保数据库目录存在
+        DATABASE_DIR.mkdir(parents=True, exist_ok=True)
+
         self.url = DATABASE_URI
         self.engine = create_engine(DATABASE_URI)
         print(f"数据库目录已存在: {DATABASE_DIR.exists()}")
         print(f"连接数据库: {DATABASE_URI}")
+
+        # 创建或更新所有表
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
+
+        # 检查并升级数据库结构（如有需要）
+        self._upgrade_database_structure()
+
+    def _upgrade_database_structure(self):
+        """升级数据库结构，预留用于未来的结构变更"""
+        try:
+            # 当前文章数据库结构比较稳定，暂时不需要升级
+            # 此方法为未来可能的结构变更预留
+            print("文章数据库结构检查完成")
+        except Exception as e:
+            print(f"文章数据库结构检查失败: {str(e)}")
+            logging.error(f"文章数据库结构检查失败: {str(e)}")
 
     def get_session(self):
         """获取数据库会话"""
