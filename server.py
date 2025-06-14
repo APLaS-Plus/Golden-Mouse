@@ -5,16 +5,18 @@ import time
 import schedule
 from datetime import datetime, date, timedelta
 
+# 使用新的统一配置
+from config import ARTICLES_DATABASE_URI as DATABASE_URI
+
 # 直接引用official_document_crawler中的模块
 from official_document_crawler.crawler.database import Base, Article, DatabaseManager
-from official_document_crawler.crawler.config import DATABASE_URI
 from official_document_crawler.main_crawler import main_crawler
 
 # 导入邮件订阅相关模块
 from email_subscriber.subscriber_manager import SubscriberService
 
 ROOT_PATH = pathlib.Path(__file__).parent.resolve()
-STATIC_FOLDER = str(ROOT_PATH / "GoldenMouse")
+STATIC_FOLDER = str(ROOT_PATH / "static")
 
 app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path="")
 
@@ -655,7 +657,8 @@ def send_new_articles_email(new_urls):
     send_new_articles_email_by_individual_frequency(new_urls)
 
 
-if __name__ == "__main__":
+def main():
+    """主函数，用于 uv run 命令调用"""
     # 启动时显示兼容性信息
     print("🔄 检查数据库兼容性...")
 
@@ -666,3 +669,7 @@ if __name__ == "__main__":
     print("📧 邮件推送已升级为个性化频率推送，兼容版本升级前的用户")
 
     app.run(debug=True, host="0.0.0.0", port=5000)
+
+
+if __name__ == "__main__":
+    main()

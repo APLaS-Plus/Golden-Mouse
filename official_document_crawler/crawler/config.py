@@ -1,48 +1,24 @@
 """
-配置模块
+爬虫模块配置
 
-存储爬虫的全局配置参数
+从项目根配置文件导入相关配置
 """
 
-import os
-from pathlib import Path
+import sys
+import pathlib
 
-ROOT_DIR = Path(__file__).absolute().parent
-DATABASE_DIR = (ROOT_DIR.parent.parent / "database").resolve()
-if not DATABASE_DIR.exists():
-    DATABASE_DIR.mkdir(parents=True)
+# 添加项目根目录到路径
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
 
-# 数据库配置
-DATABASE_URI = f"sqlite:///{str(DATABASE_DIR)}/articles.sqlite3"
-
-# 请求头配置
-HEADERS = {
-    "Referer": "https://nbw.sztu.edu.cn/",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-}
-
-# 请求负载
-PAYLOAD = {}
-
-# 基础URL
-BASE_URL = "https://nbw.sztu.edu.cn"
-LIST_URL_TEMPLATE = f"{BASE_URL}/list.jsp?totalpage=492&PAGENUM={{page}}&urltype=tree.TreeTempUrl&wbtreeid=1029"
-INFO_URL_PREFIX = f"{BASE_URL}/info/"
-
-# 请求重试次数
-MAX_RETRIES = 4
-
-# 请求超时时间（秒）
-REQUEST_TIMEOUT = 5
-
-# 休眠时间配置（秒）
-SLEEP_INTERVAL = {
-    "default": 0.5,
-    "every_10": 1,
-    "every_30": 2,
-    "every_50": 2,
-    "every_200": 5,
-}
-
-# 禁用代理设置
-os.environ["NO_PROXY"] = "*"
+from config import (
+    DATABASE_DIR,
+    ARTICLES_DATABASE_URI as DATABASE_URI,
+    HEADERS,
+    PAYLOAD,
+    BASE_URL,
+    LIST_URL_TEMPLATE,
+    INFO_URL_PREFIX,
+    MAX_RETRIES,
+    REQUEST_TIMEOUT,
+    SLEEP_INTERVAL,
+)

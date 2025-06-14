@@ -1,5 +1,39 @@
-flask
-schedule
-requests
-sqlalchemy
-beautifulsoup4
+flask>=2.0.0
+schedule>=1.2.0
+requests>=2.25.0
+sqlalchemy>=1.4.0
+beautifulsoup4>=4.9.0
+
+# 邮件发送（Python标准库，但确保版本兼容）
+# email - 标准库
+# smtplib - 标准库
+
+# 日期时间处理（标准库）
+# datetime - 标准库
+
+# 正则表达式（标准库）
+# re - 标准库
+
+# 路径处理（标准库，Python 3.4+）
+# pathlib - 标准库
+
+# 日志记录（标准库）
+# logging - 标准库
+
+# 操作系统接口（标准库）
+# os - 标准库
+
+# 系统参数和函数（标准库）
+# sys - 标准库
+
+# 线程支持（标准库）
+# threading - 标准库
+
+# 时间相关函数（标准库）
+# time - 标准库
+
+# JSON处理（标准库）
+# json - 标准库
+
+# 命令行参数解析（标准库）
+# argparse - 标准库
