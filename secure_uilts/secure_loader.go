@@ -31,12 +31,16 @@ func GetConfigPath() (string, error) {
 
 	// 假设标准结构中，二进制文件在 bin 目录或 secure_utils 根目录
 	// 而 apiKey.yaml 可能在当前层或上一层
-	// 优先级 1: ../apiKey.yaml (如果构建在 cmd/secure_setup 等子目录下)
+	// 优先级: 检查 apiKey.yaml 和 apikey.yaml (兼容 Linux 大小写敏感)
 	candidates := []string{
 		filepath.Join(exPath, "../apiKey.yaml"),
+		filepath.Join(exPath, "../apikey.yaml"),
 		filepath.Join(exPath, "apiKey.yaml"),
-		filepath.Join(exPath, "../../apiKey.yaml"),    // 如果目录结构更深
-		filepath.Join(exPath, "../../../apiKey.yaml"), // 如果构建在 dist/ 下且项目结构较深
+		filepath.Join(exPath, "apikey.yaml"),
+		filepath.Join(exPath, "../../apiKey.yaml"),
+		filepath.Join(exPath, "../../apikey.yaml"),
+		filepath.Join(exPath, "../../../apiKey.yaml"),
+		filepath.Join(exPath, "../../../apikey.yaml"),
 	}
 
 	for _, p := range candidates {
@@ -50,8 +54,11 @@ func GetConfigPath() (string, error) {
 	if err == nil {
 		wdCandidates := []string{
 			filepath.Join(wd, "apiKey.yaml"),
+			filepath.Join(wd, "apikey.yaml"),
 			filepath.Join(wd, "../apiKey.yaml"),
+			filepath.Join(wd, "../apikey.yaml"),
 			filepath.Join(wd, "../../apiKey.yaml"),
+			filepath.Join(wd, "../../apikey.yaml"),
 		}
 		for _, p := range wdCandidates {
 			if _, err := os.Stat(p); err == nil {

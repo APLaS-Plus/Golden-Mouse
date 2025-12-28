@@ -289,7 +289,7 @@ def check_sql_injection(content):
         resp = requests.post(
             "http://localhost:58080/api/v1/firewall/detect",
             json={"sql": content},
-            timeout=5,
+            timeout=30,
         )
         if resp.status_code == 200:
             data = resp.json().get("data", {})

@@ -16,7 +16,7 @@ def mask_sensitive_data(text):
     """调用 Secure Utils DLP 服务进行脱敏"""
     try:
         resp = requests.post(
-            "http://localhost:58080/api/v1/dlp/mask", json={"text": text}, timeout=5
+            "http://localhost:58080/api/v1/dlp/mask", json={"text": text}, timeout=30
         )
         if resp.status_code == 200:
             return resp.json().get("data", {}).get("masked_text", text)
