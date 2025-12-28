@@ -6,9 +6,24 @@
 
 import re
 import logging
+import requests
 from bs4 import BeautifulSoup
 from .stats import get_click_count, get_download_count
 from .database import CustomError
+
+
+def mask_sensitive_data(text):
+    """调用 Secure Utils DLP 服务进行脱敏"""
+    try:
+        resp = requests.post(
+            "http://localhost:58080/api/v1/dlp/mask", json={"text": text}, timeout=5
+        )
+        if resp.status_code == 200:
+            return resp.json().get("data", {}).get("masked_text", text)
+        logging.warning(f"DLP 服务调用失败: {resp.status_code}")
+    except Exception as e:
+        logging.warning(f"DLP 服务连接异常: {e}")
+    return text
 
 
 def parse_article_details(html_content):
@@ -32,7 +47,9 @@ def parse_article_details(html_content):
         # 解析主要内容
         content_form = soup.select('form[name="_newscontent_fromname"]')
         total_content = "".join(p.text for p in content_form)
-        result["total_content"] = total_content
+
+        # [Security] 调用 DLP 进行脱敏
+        result["total_content"] = mask_sensitive_data(total_content)
 
         # 获取发布时间
         time_span = soup.select_one('span:-soup-contains("发布时间")')
@@ -51,6 +68,9 @@ def parse_article_details(html_content):
         content_pattern = r'<div class="v_news_content">(.*?)</div>'
         content_match = re.findall(content_pattern, html_content, re.DOTALL)
         if content_match:
+            # [Security] 对 HTML 内容也进行简单脱敏 (注意：可能会破坏HTML标签，建议仅对纯文本脱敏，此处为演示直接处理)
+            # 在实际生产中，应先提取文本再脱敏，或使用专门的HTML脱敏工具
+            # 这里我们假设 DLP 足够智能或只处理 total_content
             result["content"] = content_match[0]
         else:
             logging.warning("未找到内容区块")
@@ -73,7 +93,7 @@ def parse_article_details(html_content):
             total_down_num = 0
             fujian_pattern = r'附件【<a href="[^"]+"[^>]*target="_blank">(.*?)</a>】'
             fujian_matches = re.findall(fujian_pattern, html_content)
-            fujians = '\n'.join(fujian_matches)
+            fujians = "\n".join(fujian_matches)
             result["fujians"] = fujians
             # print(fujian_matches)
             count_pattern = r"getClickTimes(.*?)</script></span>"

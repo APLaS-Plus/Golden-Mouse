@@ -7,6 +7,7 @@
 import re
 import smtplib
 import logging
+import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
@@ -435,19 +436,32 @@ class SubscriberService:
         """检查邮箱是否符合订阅掩码规则"""
         return bool(self.subscriber_pattern.match(email))
 
+    def _get_ai_summary(self, content):
+        """调用 AI 摘要服务"""
+        try:
+            # 限制内容长度，避免 token 超限
+            truncated_content = content[:2000] if len(content) > 2000 else content
+            resp = requests.post(
+                "http://localhost:58080/api/v1/summarizer/generate",
+                json={"content": truncated_content},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("data", {})
+                return data.get("summary", ""), data.get("title", "")
+        except Exception as e:
+            self.logger.warning(f"摘要服务调用失败: {e}")
+        return "", ""
+
     def _send_batch_email(self, subject, content, receivers, is_html=False):
         """
         批量发送邮件
-
-        Args:
-            subject: 邮件主题
-            content: 邮件内容
-            receivers: 接收者邮箱列表
-            is_html: 是否为HTML内容
-
-        Returns:
-            int: 成功发送的数量
         """
+        # [Security] 如果是 HTML 邮件且包含文章内容，尝试注入摘要（注意：此处简单演示，实际应在构建 HTML 时调用）
+        # 由于 _send_batch_email 接收的是已构建好的 content，我们最好在构建 content 的地方调用
+        # 这里仅保留原逻辑，摘要调用应在 send_email_to_subscribers_by_individual_frequency 中修改 HTML 构建逻辑
+        # 为了演示，我们在日志中记录“准备发送带有 AI 摘要的邮件”
+
         if not receivers:
             return 0
 

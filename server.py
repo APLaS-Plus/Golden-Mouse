@@ -6,7 +6,7 @@ import schedule
 from datetime import datetime, date, timedelta
 
 # 使用新的统一配置
-from config import ARTICLES_DATABASE_URI as DATABASE_URI
+from config import ARTICLES_DATABASE_URI as DATABASE_URI, OFFICAL_URL
 
 # 直接引用official_document_crawler中的模块
 from official_document_crawler.crawler.database import Base, Article, DatabaseManager
@@ -170,11 +170,24 @@ def send_new_articles_email_by_individual_frequency(new_urls):
                     else article.date
                 )
 
+                # [Security] 获取 AI 摘要
+                ai_summary, ai_title = subscriber_service._get_ai_summary(
+                    article.content if article.content else article.title
+                )
+                summary_html = ""
+                if ai_summary:
+                    summary_html = f"""
+                    <div style="background-color: #fcebd1; padding: 10px; margin-top: 5px; border-radius: 4px; font-size: 13px; color: #8a6d3b;">
+                        <strong>🤖 AI 摘要:</strong> {ai_summary}
+                    </div>
+                    """
+
                 html_content += f"""
                 <div class="article-card">
                     <div class="title">
                         <span style="color: #999; font-size: 14px;">#{i}</span>
                         <a href="{article.url}" target="_blank">{article.title}</a>
+                        {summary_html}
                     </div>
                     <div class="meta">
                         <span class="platform">📣 {article.source}</span>
@@ -186,7 +199,7 @@ def send_new_articles_email_by_individual_frequency(new_urls):
             html_content += f"""
                 <div class="footer">
                     <p>您的邮件根据个人设置的推送频率发送</p>
-                    <p>感谢您的订阅！如需调整订阅设置，请访问 <a href="http://localhost:5000/subscribe">订阅页面</a>。</p>
+                    <p>感谢您的订阅！如需调整订阅设置，请访问 <a href="http://{OFFICAL_URL}/subscribe">订阅页面</a>。</p>
                     <p>© 2023 深圳技术大学GoldenMouse - 让校园信息触手可及 🐭</p>
                 </div>
             </body>
@@ -267,6 +280,27 @@ def get_subscriber_platforms():
         return jsonify({"success": False, "message": f"服务器错误: {str(e)}"}), 500
 
 
+import requests
+
+
+# [Security] 数据库防火墙检测
+def check_sql_injection(content):
+    try:
+        resp = requests.post(
+            "http://localhost:58080/api/v1/firewall/detect",
+            json={"sql": content},
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            data = resp.json().get("data", {})
+            if not data.get("is_safe"):
+                return False, data.get("reason", "检测到潜在的 SQL 注入风险")
+        return True, ""
+    except Exception as e:
+        print(f"防火墙服务连接异常: {e}")
+        return True, ""  # 服务不可用时默认放行，或选择阻断
+
+
 # 邮箱订阅相关API
 @app.route("/api/subscribe", methods=["POST"])
 def subscribe():
@@ -283,6 +317,12 @@ def subscribe():
 
         if not email:
             return jsonify({"success": False, "message": "邮箱不能为空"}), 400
+
+        # [Security] 防火墙检测
+        is_safe, reason = check_sql_injection(email)
+        if not is_safe:
+            print(f"⚠️ 防火墙拦截: {email} -> {reason}")
+            return jsonify({"success": False, "message": f"安全警告: {reason}"}), 403
 
         # 验证发送频率
         try:
@@ -604,7 +644,7 @@ def send_subscription_confirmation(
                     </div>
                     
                     <p>从现在开始，您将按照设定的频率收到所有符合您订阅要求的最新公文通通知。</p>
-                    <p>如需调整订阅设置或取消订阅，请随时访问我们的 <a href="http://localhost:5000/subscribe">订阅管理页面</a>。</p>
+                    <p>如需调整订阅设置或取消订阅，请随时访问我们的 <a href="http://{OFFICAL_URL}/subscribe">订阅管理页面</a>。</p>
                 </div>
                 <div class="footer">
                     <p>© 2023 深圳技术大学GoldenMouse - 让校园信息触手可及 🐭</p>

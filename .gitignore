@@ -1,8 +1,11 @@
-.venv/*
-3rd/*
-database/*
+.venv/
+3rd/
+database/
 test.py
 uv.lock
+apikey.yaml
+*.exe
+dist/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -60,8 +60,15 @@ SMTP_SERVER = "Your smtp server"
 SMTP_PASSWORD = "Your smtp password"
 MY_EMAIL = "Sender email address"
 
-if SMTP_SERVER == "Your smtp server" or SMTP_PASSWORD == "Your smtp password" or MY_EMAIL == "Sender email address":
+if (
+    SMTP_SERVER == "Your smtp server"
+    or SMTP_PASSWORD == "Your smtp password"
+    or MY_EMAIL == "Sender email address"
+):
     raise ValueError("Please configure your SMTP settings.")
 
 # 订阅者邮箱格式限制
 SUBSCRIBER_MASK = r"^\d+@stumail\.sztu\.edu\.cn$"
+
+# offical ip:host
+OFFICAL_URL = "localhost:5000"
