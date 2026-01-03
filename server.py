@@ -74,12 +74,9 @@ def send_new_articles_email_by_individual_frequency(new_urls):
             )
 
             # 构建邮件主题
-            if len(platform_articles) == 1:
-                email_subject = f"【公文通】{platform_articles[0].title}"
-            else:
-                email_subject = (
-                    f"【公文通】{platform} - {len(platform_articles)}条新通知"
-                )
+            email_subject = (
+                f"【GM】{len(platform_articles)}条新公文通"
+            )
 
             # 构建HTML邮件内容
             html_content = f"""
