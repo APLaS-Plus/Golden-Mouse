@@ -8,9 +8,9 @@
 
 - 🕷️ **智能爬虫**: 自动爬取深圳技术大学官方公文通知
 - 📧 **个性化邮件订阅**: 支持按平台和频率的个性化推送
-- 📱 **响应式Web界面**: 今日通知、历史归档、订阅管理
+- 📱 **响应式 Web 界面**: 今日通知、历史归档、订阅管理
 - ⏰ **定时任务**: 自动定时爬取和推送新通知
-- 💾 **数据持久化**: SQLite数据库存储文章和订阅信息
+- 💾 **数据持久化**: SQLite 数据库存储文章和订阅信息
 
 ## 🚀 快速开始
 
@@ -33,7 +33,7 @@ pip install uv
 uv sync
 ```
 
-或者使用传统的pip方式：
+或者使用传统的 pip 方式：
 
 ```bash
 pip install -r requirements.txt
@@ -41,7 +41,7 @@ pip install -r requirements.txt
 
 ### 3. 配置邮件服务
 
-编辑 `config.py` 文件，配置您的SMTP邮件服务。将以下配置替换为您的实际邮件服务信息：
+编辑 `config.py` 文件，配置您的 SMTP 邮件服务。将以下配置替换为您的实际邮件服务信息：
 
 ```python
 # ========== 邮件配置 ==========
@@ -55,36 +55,81 @@ SUBSCRIBER_MASK = r"^\d+@stumail\.sztu\.edu\.cn$"  # 深圳技术大学学生邮
 
 **常见邮件服务商配置示例：**
 
-- **QQ邮箱**: 
-  - SMTP服务器: `smtp.qq.com`
-  - 端口: 587 (TLS) 或 465 (SSL)
-  - 需要开启SMTP服务并获取授权码
+- **QQ 邮箱**:
 
-- **163邮箱**:
-  - SMTP服务器: `smtp.163.com` 
+  - SMTP 服务器: `smtp.qq.com`
+  - 端口: 587 (TLS) 或 465 (SSL)
+  - 需要开启 SMTP 服务并获取授权码
+
+- **163 邮箱**:
+
+  - SMTP 服务器: `smtp.163.com`
   - 端口: 587 或 25
-  - 需要开启SMTP服务并获取授权码
+  - 需要开启 SMTP 服务并获取授权码
 
 - **Gmail**:
-  - SMTP服务器: `smtp.gmail.com`
+  - SMTP 服务器: `smtp.gmail.com`
   - 端口: 587
   - 需要开启两步验证并使用应用专用密码
 
 ### 4. 运行服务
 
-```bash
-# 使用 uv 运行 (推荐)
-uv run server.py
+由于引入了安全组件，启动前需要先生成安全密钥并初始化环境：
 
-# 或者直接使用 Python
-python server.py
+#### 第一步：配置与初始化
+
+1.  进入 `secure_uilts` 目录。
+2.  确保 `apiKey.yaml` 文件中包含您的 DeepSeek API Key (`origin_api_key`)。
+3.  运行初始化脚本以加密 Key 并生成环境配置：
+
+**Windows:**
+
+```powershell
+cd secure_uilts
+.\setup_windows.ps1
+```
+
+**Linux/macOS:**
+
+```bash
+cd secure_uilts
+chmod +x setup_linux.sh
+./setup_linux.sh
+```
+
+#### 第二步：启动安全服务
+
+等待初始化完成后，启动安全 API 服务：
+
+**Windows:**
+
+```powershell
+.\start_server.ps1
+```
+
+**Linux/macOS:**
+
+```bash
+chmod +x start_server.sh
+./start_server.sh
+```
+
+#### 第三步：启动主应用
+
+务必保持安全服务在后台运行，然后打开一个新的终端窗口运行主应用：
+
+```bash
+# 回到项目根目录
+cd ..
+uv run server.py
+# 或 python server.py
 ```
 
 服务启动后，访问 http://localhost:5000 即可使用。
 
 ## 📖 使用说明
 
-### Web界面
+### Web 界面
 
 - **首页** (`/`): 查看今日最新公文通知
 - **归档页** (`/archive`): 浏览历史公文，支持分页
@@ -93,16 +138,17 @@ python server.py
 ### 邮件订阅功能
 
 1. **订阅设置**:
+
    - 支持全部平台或选择特定平台订阅
-   - 可设置1-24小时的个性化推送频率
+   - 可设置 1-24 小时的个性化推送频率
    - 实时推送新公文通知
 
 2. **邮件格式**:
-   - 精美的HTML邮件模板
+   - 精美的 HTML 邮件模板
    - 按平台分组显示新通知
    - 包含标题、来源、时间和链接
 
-### API接口
+### API 接口
 
 ```bash
 # 获取文章数据
@@ -114,11 +160,14 @@ GET /api/get_today_data
 # 邮件订阅
 POST /api/subscribe
 
-# 取消订阅  
+# 取消订阅
 POST /api/unsubscribe
 
 # 获取平台列表
 GET /api/get_platforms
+
+# 获取用户已订阅平台
+POST /api/get_subscriber_platforms
 
 # 获取统计数据
 GET /api/get_stats
@@ -141,6 +190,15 @@ GoldenMouse/
 ├── database/                    # 数据库文件目录
 │   ├── articles.sqlite3        # 文章数据库
 │   └── subscribers.sqlite3     # 订阅者数据库
+├── secure_uilts/                # 安全组件
+│   ├── secure_api_server.exe   # 安全API服务
+│   ├── secure_setup.exe        # 安全环境设置
+│   ├── db_firewall.go          # 数据库防火墙源码
+│   ├── smart_dlp.go            # 智能DLP源码
+│   └── start_server.ps1/sh     # 启动脚本
+├── accident_email_senter/       # 事故/更新通知发送器
+│   ├── email_test.py           # 邮件测试发送
+│   └── update_notification.py  # 更新通知发送
 ├── official_document_crawler/   # 爬虫模块
 │   ├── __init__.py
 │   ├── main_crawler.py         # 主爬虫程序
@@ -162,13 +220,13 @@ GoldenMouse/
 
 ### 数据库配置
 
-系统使用SQLite数据库，配置在 `config.py` 中：
+系统使用 SQLite 数据库，配置在 `config.py` 中：
 
 ```python
 # 文章数据库
 ARTICLES_DATABASE_URI = f"sqlite:///{str(DATABASE_DIR)}/articles.sqlite3"
 
-# 订阅者数据库  
+# 订阅者数据库
 SUBSCRIBERS_DATABASE_URI = f"sqlite:///{str(DATABASE_DIR)}/subscribers.sqlite3"
 ```
 
@@ -188,7 +246,7 @@ SLEEP_INTERVAL = {
     "default": 0.5,
     "every_10": 1,
     "every_30": 2,
-    "every_50": 2, 
+    "every_50": 2,
     "every_200": 5,
 }
 ```
@@ -206,7 +264,7 @@ SUBSCRIBER_MASK = r"^\d+@stumail\.sztu\.edu\.cn$"
 
 系统内置定时爬取功能：
 
-- **爬取频率**: 每30分钟执行一次
+- **爬取频率**: 每 30 分钟执行一次
 - **推送逻辑**: 发现新文章时按用户设定频率推送
 - **去重机制**: 避免重复推送相同文章
 
@@ -238,7 +296,7 @@ HEADERS = {
 
 ### 2. 修改数据解析逻辑
 
-根据您学校网站的HTML结构，修改以下文件：
+根据您学校网站的 HTML 结构，修改以下文件：
 
 **a) `official_document_crawler/crawler/fetcher.py`**
 
@@ -262,10 +320,10 @@ urls = re.findall(r'"><a href="info/(.*?)" title="', html_content)
 def parse_article_details(html_content):
     # 调整内容提取的CSS选择器
     content_form = soup.select('form[name="_newscontent_fromname"]')  # 根据实际结构修改
-    
+
     # 调整时间提取逻辑
     time_span = soup.select_one('span:-soup-contains("发布时间")')  # 根据实际结构修改
-    
+
     # 调整其他字段的提取逻辑...
 ```
 
@@ -290,13 +348,14 @@ SUBSCRIBER_MASK = r"^[a-zA-Z0-9._%+-]+@your-school\.edu\.cn$"
 
 1. **确认合规性**: 检查您学校的公文通知是否允许对外传播
 2. **获得授权**: 如有必要，请获得学校相关部门的使用授权
-3. **遵守协议**: 确保遵守学校网站的使用条款和robots.txt规定
+3. **遵守协议**: 确保遵守学校网站的使用条款和 robots.txt 规定
 4. **控制访问频率**: 避免对目标网站造成过大负载
 5. **保护隐私**: 确保不传播包含个人隐私信息的内容
 
 **建议**：
+
 - 在正式使用前联系学校网络中心或相关技术部门
-- 考虑与学校合作，获得官方API支持
+- 考虑与学校合作，获得官方 API 支持
 - 设置合理的爬取间隔，避免影响正常服务
 
 ## 🐛 故障排除
@@ -304,13 +363,15 @@ SUBSCRIBER_MASK = r"^[a-zA-Z0-9._%+-]+@your-school\.edu\.cn$"
 ### 常见问题
 
 1. **邮件发送失败**
-   - 检查SMTP配置是否正确
-   - 确认邮箱服务商SMTP服务已开启
+
+   - 检查 SMTP 配置是否正确
+   - 确认邮箱服务商 SMTP 服务已开启
    - 验证授权码/应用密码是否正确
 
 2. **数据库连接错误**
-   - 确保database目录存在且有写入权限
-   - 检查SQLite文件是否损坏
+
+   - 确保 database 目录存在且有写入权限
+   - 检查 SQLite 文件是否损坏
 
 3. **爬虫无法获取数据**
    - 检查网络连接
@@ -321,14 +382,15 @@ SUBSCRIBER_MASK = r"^[a-zA-Z0-9._%+-]+@your-school\.edu\.cn$"
 ### 日志调试
 
 服务运行时会在控制台输出详细日志，包括：
+
 - 🚀 服务启动信息
-- 📊 数据库查询结果  
+- 📊 数据库查询结果
 - 📧 邮件发送状态
 - ⏰ 定时任务执行情况
 
 ## 🤝 贡献
 
-欢迎提交Issue和Pull Request来改进项目！
+欢迎提交 Issue 和 Pull Request 来改进项目！
 
 ### 贡献指南
 
@@ -348,4 +410,26 @@ GoldenMouse Team - 让校园信息触手可及 🐭
 
 ---
 
-如有问题，请访问项目主页或提交Issue。
+如有问题，请访问项目主页或提交 Issue。
+
+## 📝 更新日志
+
+### v1.1.0 (2026-01-03)
+
+**内容体验相关**
+
+- 📧 **优化邮件标题**: 修改了邮件标题显示，取消了显示文章标题的重复内容。
+- 🤖 **AI 内容总结**: 添加了 AI 内容总结功能，自动总结各个平台的文章内容，并附带原文链接一起推送。
+- 🌙 **网页暗黑模式**: 网页全站添加暗黑模式支持 (Index/Subscribe/Today)，自动跟随系统或手动切换。
+
+**安全相关**
+
+- 🛡️ **数据库防注入**: 更新了网页部分数据库防注入功能，提升系统安全性。
+- 🔒 **敏感信息隐蔽**: 更新了收录文章敏感信息隐蔽功能，更好地保护隐私。
+
+### v1.0.0 (2025-06-01)
+
+- 🎉 **初始发布**: 项目正式发布。
+- 🕷️ **基础爬虫**: 实现深圳技术大学公文通自动爬取。
+- 📧 **邮件订阅**: 支持基础的邮件订阅和推送功能。
+- 📱 **Web 界面**: 提供今日通知、历史归档和订阅管理界面。
