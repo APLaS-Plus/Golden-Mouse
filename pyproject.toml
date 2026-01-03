@@ -18,15 +18,17 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Framework :: Flask",
 ]
 
 dependencies = [
-    "flask>=2.0.0",
-    "schedule>=1.2.0", 
-    "requests>=2.25.0",
-    "sqlalchemy>=1.4.0",
-    "beautifulsoup4>=4.9.0",
+    "flask",
+    "schedule", 
+    "requests>",
+    "sqlalchemy",
+    "beautifulsoup4",
+    "pyaml",
 ]
 
 [project.optional-dependencies]

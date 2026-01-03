@@ -1,0 +1,49 @@
+# data from https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/SQLite%20Injection.md
+
+- name: "正常查询 (Normal Select)"
+  sql: "SELECT * FROM users WHERE id = 1"
+  should_be_safe: true
+
+- name: "SQLite 单行注释 (Single Line Comment)"
+  sql: "SELECT * FROM users WHERE id = 1 --"
+  should_be_safe: false
+
+- name: "SQLite 多行注释 (Multi Line Comment)"
+  sql: "SELECT * FROM users WHERE id = 1 /*"
+  should_be_safe: false
+
+- name: "查询版本 (Version Query)"
+  sql: "UNION SELECT sqlite_version()"
+  should_be_safe: false
+
+- name: "提取表结构 (Extract Schema)"
+  sql: "UNION SELECT sql FROM sqlite_master"
+  should_be_safe: false
+
+- name: "盲注 - 表数量 (Blind Injection - Table Count)"
+  sql: "AND (SELECT count(tbl_name) FROM sqlite_master WHERE type='table') < 10"
+  should_be_safe: false
+
+- name: "盲注 - 表名长度 (Blind Injection - Table Name Length)"
+  sql: "AND (SELECT length(tbl_name) FROM sqlite_master LIMIT 1) = 1"
+  should_be_safe: false
+
+- name: "基于错误的注入 (Error Based - load_extension)"
+  sql: "AND CASE WHEN 1=1 THEN 1 ELSE load_extension(1) END"
+  should_be_safe: false
+
+- name: "基于时间的注入 (Time Based - RANDOMBLOB)"
+  sql: "AND 1337=LIKE('ABCDEFG',UPPER(HEX(RANDOMBLOB(1000000000/2))))"
+  should_be_safe: false
+
+- name: "RCE - 附加数据库 (Attach Database)"
+  sql: "ATTACH DATABASE '/var/www/shell.php' AS shell"
+  should_be_safe: false
+
+- name: "文件写入 (Write File)"
+  sql: 'SELECT writefile(''/tmp/shell.php'', ''<?php system($_GET["cmd"]); ?>'')'
+  should_be_safe: false
+
+- name: "加载扩展 (Load Extension)"
+  sql: "SELECT load_extension('/tmp/evil.so')"
+  should_be_safe: false
